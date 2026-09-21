@@ -1,0 +1,21 @@
+{
+  "name": "fast-jev-llm",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm --filter @fast-jev/core test",
+    "compact": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/cli start",
+    "bench": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/benchmarks start"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
