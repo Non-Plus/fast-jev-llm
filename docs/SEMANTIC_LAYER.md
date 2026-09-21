@@ -4,7 +4,9 @@ Optional classification for items the **deterministic** engine already
 marked as safe to evaluate. Semantic output is never authoritative over
 protected context.
 
-Default: `semanticMode = off`. Nothing is sent anywhere.
+Claude Code, Codex, and Cursor adapters all call this same port.
+There is no Claude-specific Jev implementation.
+
 
 ## What it does
 

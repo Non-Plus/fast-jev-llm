@@ -1,0 +1,17 @@
+{
+  "description": "Optional Context Engine shadow analysis. Observation only; never modifies Claude context. Not auto-installed.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./packages/adapter-claude/dist/hook-cli.js",
+            "timeout": 3,
+            "failClosed": false
+          }
+        ]
+      }
+    ]
+  }
+}

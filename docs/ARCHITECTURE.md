@@ -17,6 +17,12 @@ Cursor agent-transcript JSONL into the same canonical `Transcript` and
 runs the same `compact()`. It does not replace Cursor compaction or
 mutate Cursor context.
 
+Claude Code is the third shadow adapter: `packages/adapter-claude`
+parses Claude JSONL into the same canonical `Transcript`. It does not
+replace Claude compaction, attach to `PreCompact`, or mutate Claude
+context. Comparison against fast-jev-compaction is a **benchmark
+model** under `benchmarks/`, not a core strategy.
+
 ## Goals
 
 - Canonical, provider-neutral transcript types
@@ -36,7 +42,7 @@ mutate Cursor context.
 
 ## Non-goals (this slice)
 
-- Active Codex or Cursor compaction, context replacement, or message injection
+- Active Codex, Cursor, or Claude compaction, context replacement, or message injection
 - Local LLMs (Ollama/MLX), embeddings, or vector databases
 - HTTP servers, UI, or databases
 - Local archival and project memory
@@ -49,10 +55,11 @@ mutate Cursor context.
 packages/core                 Canonical types + compaction engine
 packages/adapter-codex        Codex JSONL → Transcript + shadow analysis
 packages/adapter-cursor       Cursor JSONL → Transcript + shadow analysis
+packages/adapter-claude       Claude JSONL → Transcript + shadow analysis
 packages/providers            SemanticProvider barrel + noop
 packages/providers/jev        Isolated TypeSafe Jev provider
-cli                           `ctx compact`, `ctx codex analyze|explain`, `ctx cursor analyze|explain`
-benchmarks                    Timing harness + large JSONL shadow benches
+cli                           `ctx compact`, `ctx {codex,cursor,claude} analyze|explain`
+benchmarks                    Timing harness, Fast-Jev-style baseline, large JSONL shadow benches
 fixtures                      Shared example sessions
 ```
 
@@ -199,9 +206,9 @@ No sophisticated task inference.
 ## Data flow
 
 ```
-Codex JSONL  ─┐
-              ├─► adapter (vendor-specific) ─► Transcript (frozen)
-Cursor JSONL ─┘                                        │
+Codex JSONL   ─┐
+Cursor JSONL  ─┼─► adapter (vendor-specific) ─► Transcript (frozen)
+Claude JSONL  ─┘                                        │
                                                        ▼
                                                  normalize()
                                                        │
@@ -298,5 +305,7 @@ deep-frozen. `COMPRESS` yields a new item with stub content and a
 Both print original tokens, protected verbatim vs compressible tokens,
 kept / compressed / dropped tokens, compression and drop savings,
 reduction percent, and reduction grouped by `reasonCode`. Cursor reports
-also include `effectiveTokens` and Cursor version when known. Benchmarks
-also report average `compact()` latency and structured compressor quality.
+also include `effectiveTokens` and Cursor version when known. Claude
+reports include Claude version when known. Benchmarks also report
+parser latency, Fast-Jev-style baseline metrics, and
+`semanticCandidateReduction`. See [BENCHMARKING.md](./BENCHMARKING.md).

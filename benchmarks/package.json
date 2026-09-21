@@ -9,9 +9,13 @@
     "start:compression": "tsx src/compression-quality.ts",
     "start:real-session": "tsx src/real-session-task4.ts",
     "start:semantic": "tsx src/real-session-task5.ts",
-    "start:cursor": "tsx src/cursor-shadow.ts"
+    "start:cursor": "tsx src/cursor-shadow.ts",
+    "start:claude": "tsx src/claude-shadow.ts",
+    "start:compare": "tsx src/task7-report.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@fast-jev/adapter-claude": "workspace:*",
     "@fast-jev/adapter-codex": "workspace:*",
     "@fast-jev/adapter-cursor": "workspace:*",
     "@fast-jev/core": "workspace:*",
@@ -19,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "vitest": "^3.0.8"
   }
 }

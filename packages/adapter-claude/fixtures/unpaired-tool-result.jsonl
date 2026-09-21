@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"orphan","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"user","content":[{"type":"text","text":"Continue."}]}}
+{"type":"user","sessionId":"orphan","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"missing_call","content":"orphan output"}]},"parentUuid":"x"}

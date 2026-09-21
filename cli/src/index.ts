@@ -5,6 +5,13 @@ import { homedir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { compact, formatStats, type SemanticMode, type SemanticProvider, type Transcript } from "@fast-jev/core";
 import {
+  analyzeClaudeSession,
+  formatShadowAnalysis as formatClaudeShadowAnalysis,
+  formatShadowExplain as formatClaudeShadowExplain,
+  toShadowJsonDocument as toClaudeShadowJsonDocument,
+  writeShadowReport as writeClaudeShadowReport,
+} from "@fast-jev/adapter-claude";
+import {
   analyzeCodexSession,
   formatShadowAnalysis as formatCodexShadowAnalysis,
   formatShadowExplain as formatCodexShadowExplain,
@@ -50,10 +57,31 @@ function usage(): never {
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
   ctx cursor explain <session-source> [--preview-length <n>] [--no-report-previews]
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
+  ctx claude analyze <transcript.jsonl> [--json] [--save] [--save-dir <dir>] [--preview-length <n>]
+      [--report-previews] [--no-report-previews] [--cwd <dir>]
+      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
+  ctx claude explain <transcript.jsonl> [--preview-length <n>] [--no-report-previews]
+      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
 
 Default semantic-mode is off. Remote classification is never implicit.
-Shadow mode only. No Codex or Cursor context is modified.`);
+Shadow mode only. No Codex, Cursor, or Claude context is modified.`);
   process.exit(2);
+}
+
+async function resolveClaudeSessionSource(input: string): Promise<string> {
+  const path = expandPath(input);
+  const info = await stat(path);
+  if (!info.isDirectory()) {
+    return path;
+  }
+  const entries = (await readdir(path))
+    .filter((entry) => entry.endsWith(".jsonl") && !entry.startsWith("agent-"))
+    .sort();
+  const first = entries[0];
+  if (!first) {
+    throw new Error(`No .jsonl transcript found in ${path}`);
+  }
+  return join(path, first);
 }
 
 async function resolveCursorSessionSource(input: string): Promise<string> {
@@ -264,6 +292,71 @@ async function runCursor(args: string[]): Promise<void> {
   console.log(formatCursorShadowAnalysis(result));
 }
 
+async function runClaude(args: string[]): Promise<void> {
+  const command = args.shift();
+  if (command !== "analyze" && command !== "explain") {
+    usage();
+  }
+  const json = takeFlag(args, "--json");
+  const save = takeFlag(args, "--save");
+  const noPreviews = takeFlag(args, "--no-previews") || takeFlag(args, "--no-report-previews");
+  takeFlag(args, "--report-previews");
+  const saveDir = takeOption(args, "--save-dir");
+  const previewRaw = takeOption(args, "--preview-length");
+  const cwd = takeOption(args, "--cwd");
+  const claudeVersion = takeOption(args, "--claude-version");
+  const semantic = resolveSemantic(args);
+  const file = args[0];
+  if (!file || args.length !== 1) {
+    usage();
+  }
+  if (command === "explain" && json) {
+    usage();
+  }
+
+  const previewLength = previewRaw !== undefined ? Number(previewRaw) : undefined;
+  if (previewLength !== undefined && (!Number.isFinite(previewLength) || previewLength <= 0)) {
+    throw new Error("--preview-length must be a positive number");
+  }
+
+  const path = await resolveClaudeSessionSource(file);
+  const result = await analyzeClaudeSession(
+    { path },
+    {
+      sourcePath: path,
+      ...(previewLength !== undefined ? { previewLength } : {}),
+      ...(noPreviews ? { reportPreviews: false } : {}),
+      ...(cwd !== undefined ? { cwd: expandPath(cwd) } : {}),
+      ...(claudeVersion !== undefined ? { claudeVersion } : {}),
+      config: {
+        semanticMode: semantic.mode,
+        semanticCache: semantic.cache,
+      },
+      ...(semantic.provider ? { semanticProvider: semantic.provider } : {}),
+    },
+  );
+
+  if (save || saveDir) {
+    const saved = await writeClaudeShadowReport(result, {
+      ...(saveDir !== undefined ? { directory: saveDir } : {}),
+      sourcePath: path,
+    });
+    if (!json) {
+      console.error(`Wrote shadow report: ${saved}`);
+    }
+  }
+
+  if (command === "explain") {
+    console.log(formatClaudeShadowExplain(result));
+    return;
+  }
+  if (json) {
+    console.log(JSON.stringify(toClaudeShadowJsonDocument(result, path), null, 2));
+    return;
+  }
+  console.log(formatClaudeShadowAnalysis(result));
+}
+
 const argv = process.argv.slice(2);
 while (argv[0] === "--") {
   argv.shift();
@@ -272,6 +365,8 @@ if (argv[0] === "codex") {
   await runCodex(argv.slice(1));
 } else if (argv[0] === "cursor") {
   await runCursor(argv.slice(1));
+} else if (argv[0] === "claude") {
+  await runClaude(argv.slice(1));
 } else if (argv[0] === "compact") {
   await runCompact(argv[1]);
 } else if (argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {

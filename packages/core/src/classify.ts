@@ -21,6 +21,10 @@ const FILE_WRITE_NAMES = new Set([
   "strreplace",
   "apply_patch",
   "applypatch",
+  "notebookedit",
+  "notebook_edit",
+  "multiedit",
+  "multi_edit",
 ]);
 
 const DIR_NAMES = new Set([

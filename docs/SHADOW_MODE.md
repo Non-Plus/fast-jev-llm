@@ -4,7 +4,7 @@ Shadow mode runs the provider-independent context engine **against a
 canonical copy** of a real agent session and reports what the engine
 *would* protect, keep, compress, and drop.
 
-It does not change Codex or Cursor.
+It does not change Codex, Cursor, or Claude Code.
 
 > Analyzes what Context Engine would remove without modifying the
 > session.
@@ -12,17 +12,18 @@ It does not change Codex or Cursor.
 ## What it does
 
 ```
-Codex JSONL  ─┐
-              ├─► vendor adapter (streamed)
-Cursor JSONL ─┘     → canonical Transcript  (@fast-jev/core types only)
+Codex JSONL   ─┐
+Cursor JSONL  ─┼─► vendor adapter (streamed)
+Claude JSONL  ─┘     → canonical Transcript  (@fast-jev/core types only)
                     → core.compact()
                     → ShadowAnalysisResult
 ```
 
-`packages/core` never imports Codex or Cursor types.
+`packages/core` never imports Codex, Cursor, or Claude types.
 
-`analyzeCodexSession()` / `analyzeCursorSession()` never write to the
-source transcript. Parsers do not mutate in-memory event objects.
+`analyzeCodexSession()` / `analyzeCursorSession()` /
+`analyzeClaudeSession()` never write to the source transcript. Parsers
+do not mutate in-memory event objects.
 
 ## CLI
 
@@ -47,7 +48,17 @@ ctx cursor explain session.jsonl --no-report-previews
 ctx cursor analyze session.jsonl --semantic-mode remote --semantic-provider jev
 ```
 
-Default `--semantic-mode off` for both. Both are shadow analysis.
+Claude Code:
+
+```bash
+ctx claude analyze ~/.claude/projects/<slug>/<session>.jsonl
+ctx claude analyze session.jsonl --json --cwd /path/to/workspace
+ctx claude analyze session.jsonl --save
+ctx claude explain session.jsonl --no-report-previews
+ctx claude analyze session.jsonl --semantic-mode remote --semantic-provider jev
+```
+
+Default `--semantic-mode off` for all three. All are shadow analysis.
 
 Human Codex output ends with:
 
@@ -62,9 +73,16 @@ Shadow mode only.
 No Cursor context was modified.
 ```
 
+Human Claude output ends with:
+
+```
+Shadow mode only.
+No Claude context was modified.
+```
+
 `--json` prints a machine-readable document:
 
-- `metadata` (session id, source `codex` or `cursor`, mode `shadow`, timestamp, model, cwd, Cursor version when known)
+- `metadata` (session id, source `codex` / `cursor` / `claude`, mode `shadow`, timestamp, model, cwd, vendor version when known)
 - `statistics` (including `effectiveTokens` for Cursor)
 - `decisions` (winning decision per item)
 - `decisionTrace` (every rule evaluation)
@@ -104,15 +122,21 @@ do not open sockets unless remote semantic mode is explicitly enabled.
 analysis, never auto-installed. See
 [CURSOR_INTEGRATION.md](./CURSOR_INTEGRATION.md).
 
-Do not attach this engine to Codex `PreCompact` / Cursor `preCompact`
-as a compaction replacement. Cursor `preCompact` cannot modify
-compaction. Codex pre/post compact hooks can block the product.
+**Claude Code:** documented `SessionEnd` only. Fire-and-forget,
+detached analysis, never auto-installed. **Do not use `PreCompact`**
+(it can block compaction). See
+[CLAUDE_INTEGRATION.md](./CLAUDE_INTEGRATION.md).
+
+Do not attach this engine to Codex `PreCompact` / Cursor `preCompact` /
+Claude `PreCompact` as a compaction replacement. Cursor `preCompact`
+cannot modify compaction. Codex and Claude pre-compact hooks can block
+the product.
 
 ## What is not implemented
 
-- active Codex or Cursor compaction or context replacement
+- active Codex, Cursor, or Claude compaction or context replacement
 - message injection or tool blocking
 - Ollama / MLX / local LLM providers
 - embeddings / vector databases
 - project memory / full archival
-- Claude adapter, UI, server, daemon, cloud telemetry
+- UI, server, daemon, cloud telemetry

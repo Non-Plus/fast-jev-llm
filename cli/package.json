@@ -10,6 +10,7 @@
     "ctx": "./src/index.ts"
   },
   "dependencies": {
+    "@fast-jev/adapter-claude": "workspace:*",
     "@fast-jev/adapter-codex": "workspace:*",
     "@fast-jev/adapter-cursor": "workspace:*",
     "@fast-jev/core": "workspace:*",

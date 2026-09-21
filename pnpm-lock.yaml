@@ -23,6 +23,37 @@ importers:
 
   benchmarks:
     dependencies:
+      '@fast-jev/adapter-claude':
+        specifier: workspace:*
+        version: link:../packages/adapter-claude
+      '@fast-jev/adapter-codex':
+        specifier: workspace:*
+        version: link:../packages/adapter-codex
+      '@fast-jev/adapter-cursor':
+        specifier: workspace:*
+        version: link:../packages/adapter-cursor
+      '@fast-jev/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@fast-jev/provider-jev':
+        specifier: workspace:*
+        version: link:../packages/providers/jev
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.10
+        version: 22.20.4
+      tsx:
+        specifier: ^4.19.3
+        version: 4.23.15
+      vitest:
+        specifier: ^3.0.8
+        version: 3.2.7(@types/node@22.20.4)(tsx@4.23.15)
+
+  cli:
+    dependencies:
+      '@fast-jev/adapter-claude':
+        specifier: workspace:*
+        version: link:../packages/adapter-claude
       '@fast-jev/adapter-codex':
         specifier: workspace:*
         version: link:../packages/adapter-codex
@@ -43,27 +74,27 @@ importers:
         specifier: ^4.19.3
         version: 4.23.15
 
-  cli:
+  packages/adapter-claude:
     dependencies:
-      '@fast-jev/adapter-codex':
-        specifier: workspace:*
-        version: link:../packages/adapter-codex
-      '@fast-jev/adapter-cursor':
-        specifier: workspace:*
-        version: link:../packages/adapter-cursor
       '@fast-jev/core':
         specifier: workspace:*
-        version: link:../packages/core
-      '@fast-jev/provider-jev':
-        specifier: workspace:*
-        version: link:../packages/providers/jev
+        version: link:../core
     devDependencies:
+      '@fast-jev/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
+      '@fast-jev/adapter-cursor':
+        specifier: workspace:*
+        version: link:../adapter-cursor
       '@types/node':
         specifier: ^22.13.10
         version: 22.20.4
-      tsx:
-        specifier: ^4.19.3
-        version: 4.23.15
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.8
+        version: 3.2.7(@types/node@22.20.4)(tsx@4.23.15)
 
   packages/adapter-codex:
     dependencies:

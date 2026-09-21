@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"unpaired-call","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"user","content":[{"type":"text","text":"Read auth."}]}}
+{"type":"assistant","sessionId":"unpaired-call","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_missing","name":"Read","input":{"file_path":"src/auth.ts"}}],"model":"claude-opus-4-8"}}

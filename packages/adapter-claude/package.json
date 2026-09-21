@@ -1,0 +1,32 @@
+{
+  "name": "@fast-jev/adapter-claude",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "hooks"],
+  "bin": {
+    "ctx-claude-hook": "./dist/hook-cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fast-jev/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@fast-jev/adapter-codex": "workspace:*",
+    "@fast-jev/adapter-cursor": "workspace:*",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

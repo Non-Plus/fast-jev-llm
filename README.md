@@ -3,16 +3,19 @@
 Provider-independent context management for AI coding agents.
 
 The core engine is deterministic: it never calls a model. **Shadow
-adapters** can observe real Codex or Cursor sessions and report what
-the engine would protect, keep, compress, and drop **without modifying
-those products**.
+adapters** can observe real Codex, Cursor, or Claude Code sessions
+and report what the engine would protect, keep, compress, and drop
+**without modifying those products**.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/SHADOW_MODE.md](docs/SHADOW_MODE.md),
 [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md),
 [docs/PRIVACY.md](docs/PRIVACY.md),
+[docs/BENCHMARKING.md](docs/BENCHMARKING.md),
 [docs/CODEX_INTEGRATION.md](docs/CODEX_INTEGRATION.md),
-and [docs/CURSOR_INTEGRATION.md](docs/CURSOR_INTEGRATION.md).
+[docs/CURSOR_INTEGRATION.md](docs/CURSOR_INTEGRATION.md),
+[docs/CLAUDE_INTEGRATION.md](docs/CLAUDE_INTEGRATION.md),
+and [docs/FAST_JEV_BASELINE.md](docs/FAST_JEV_BASELINE.md).
 
 ## Requirements
 
@@ -28,6 +31,8 @@ pnpm compact
 pnpm bench
 pnpm bench:codex
 pnpm bench:cursor
+pnpm bench:claude
+pnpm bench:compare
 ```
 
 ### Codex (shadow analysis)
@@ -53,6 +58,18 @@ pnpm ctx -- cursor analyze session.jsonl --semantic-mode remote --semantic-provi
 
 Shadow mode **analyzes what Context Engine would remove without
 modifying the Cursor session.**
+
+### Claude Code (shadow analysis)
+
+```bash
+pnpm ctx -- claude analyze ~/.claude/projects/<slug>/<session>.jsonl
+pnpm ctx -- claude analyze session.jsonl --json
+pnpm ctx -- claude explain session.jsonl
+pnpm ctx -- claude analyze session.jsonl --semantic-mode remote --semantic-provider jev
+```
+
+Shadow mode **analyzes what Context Engine would remove without
+modifying the Claude session.**
 
 Semantic classification is **off by default**. Remote providers such as
 Jev run only with an explicit `--semantic-mode remote` and never send

@@ -1,0 +1,3 @@
+{"type":"user","sessionId":"unknown","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"user","content":[{"type":"text","text":"Hello."}]}}
+{"type":"claude_secret_internal","sessionId":"unknown","payload":{"x":1}}
+{"type":"assistant","sessionId":"unknown","cwd":"/Users/user/project","timestamp":"2026-09-21T04:00:00.000Z","version":"2.1.251","gitBranch":"main","message":{"role":"assistant","content":[{"type":"text","text":"Hi."}],"model":"claude-opus-4-8"}}
