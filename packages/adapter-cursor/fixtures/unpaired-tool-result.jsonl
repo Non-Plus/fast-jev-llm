@@ -1,0 +1,3 @@
+{"type":"session_meta","session_id":"orphan-cursor","cwd":"/Users/user/project"}
+{"role":"user","message":{"content":[{"type":"text","text":"Continue."}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"missing_call","content":"orphan output"}]}}

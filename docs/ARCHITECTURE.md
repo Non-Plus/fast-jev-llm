@@ -12,6 +12,11 @@ Codex is integrated only as a **passive shadow adapter**: it parses
 JSONL into the canonical `Transcript` and runs `compact()`. It does not
 replace Codex compaction or mutate sessions.
 
+Cursor is integrated the same way: `packages/adapter-cursor` parses
+Cursor agent-transcript JSONL into the same canonical `Transcript` and
+runs the same `compact()`. It does not replace Cursor compaction or
+mutate Cursor context.
+
 ## Goals
 
 - Canonical, provider-neutral transcript types
@@ -31,8 +36,7 @@ replace Codex compaction or mutate sessions.
 
 ## Non-goals (this slice)
 
-- Active Codex compaction, context replacement, or message injection
-- Cursor adapter
+- Active Codex or Cursor compaction, context replacement, or message injection
 - Local LLMs (Ollama/MLX), embeddings, or vector databases
 - HTTP servers, UI, or databases
 - Local archival and project memory
@@ -44,9 +48,10 @@ replace Codex compaction or mutate sessions.
 ```
 packages/core                 Canonical types + compaction engine
 packages/adapter-codex        Codex JSONL → Transcript + shadow analysis
+packages/adapter-cursor       Cursor JSONL → Transcript + shadow analysis
 packages/providers            SemanticProvider barrel + noop
 packages/providers/jev        Isolated TypeSafe Jev provider
-cli                           `ctx compact` and `ctx codex analyze|explain`
+cli                           `ctx compact`, `ctx codex analyze|explain`, `ctx cursor analyze|explain`
 benchmarks                    Timing harness + large JSONL shadow benches
 fixtures                      Shared example sessions
 ```
@@ -194,27 +199,23 @@ No sophisticated task inference.
 ## Data flow
 
 ```
-Transcript (frozen)
-        │
-        ▼
-  normalize()     pair tools, classify, hash file ops, estimate tokens
-        │
-        ▼
-  SessionState    items + TaskState + relations
-        │
-        ├─► protect rules      retention + compression flags (safety + recency)
-        ├─► prune rules        DROP / COMPRESS
-        └─► semantic (optional, default off)
-                eligibility → pack → batch → provider → policy + veto
-                │
-                ▼
-        merge (authority; retention ⟂ compression)
-                │
-                ▼
-        materialize()          KEEP/PROTECT copy; COMPRESS stub; omit DROP
-                │
-                ▼
-  CompactionResult     winning + evaluations + stats by reasonCode
+Codex JSONL  ─┐
+              ├─► adapter (vendor-specific) ─► Transcript (frozen)
+Cursor JSONL ─┘                                        │
+                                                       ▼
+                                                 normalize()
+                                                       │
+                                                       ▼
+                                                 SessionState
+                                                       │
+                          ┌────────────────────────────┼────────────────────────────┐
+                          ▼                            ▼                            ▼
+                   protect rules                  prune rules               semantic (optional)
+                          └────────────────────────────┼────────────────────────────┘
+                                                       ▼
+                                                 merge + materialize
+                                                       ▼
+                                               CompactionResult
 ```
 
 ```ts
@@ -296,5 +297,6 @@ deep-frozen. `COMPRESS` yields a new item with stub content and a
 
 Both print original tokens, protected verbatim vs compressible tokens,
 kept / compressed / dropped tokens, compression and drop savings,
-reduction percent, and reduction grouped by `reasonCode`. Benchmarks
+reduction percent, and reduction grouped by `reasonCode`. Cursor reports
+also include `effectiveTokens` and Cursor version when known. Benchmarks
 also report average `compact()` latency and structured compressor quality.

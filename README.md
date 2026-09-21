@@ -2,16 +2,17 @@
 
 Provider-independent context management for AI coding agents.
 
-The core engine is deterministic: it never calls a model. A **Codex
-shadow adapter** can observe real Codex sessions and report what the
-engine would protect, keep, compress, and drop **without modifying
-Codex**.
+The core engine is deterministic: it never calls a model. **Shadow
+adapters** can observe real Codex or Cursor sessions and report what
+the engine would protect, keep, compress, and drop **without modifying
+those products**.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/SHADOW_MODE.md](docs/SHADOW_MODE.md),
 [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md),
 [docs/PRIVACY.md](docs/PRIVACY.md),
-and [docs/CODEX_INTEGRATION.md](docs/CODEX_INTEGRATION.md).
+[docs/CODEX_INTEGRATION.md](docs/CODEX_INTEGRATION.md),
+and [docs/CURSOR_INTEGRATION.md](docs/CURSOR_INTEGRATION.md).
 
 ## Requirements
 
@@ -26,9 +27,10 @@ pnpm test
 pnpm compact
 pnpm bench
 pnpm bench:codex
+pnpm bench:cursor
 ```
 
-Shadow analysis of a Codex JSONL transcript:
+### Codex (shadow analysis)
 
 ```bash
 pnpm ctx -- codex analyze ~/.codex/sessions/2026/09/21/rollout-….jsonl
@@ -39,6 +41,18 @@ pnpm ctx -- codex analyze session.jsonl --semantic-mode remote --semantic-provid
 
 Shadow mode **analyzes what Context Engine would remove without
 modifying the Codex session.**
+
+### Cursor (shadow analysis)
+
+```bash
+pnpm ctx -- cursor analyze ~/.cursor/projects/<slug>/agent-transcripts/<id>/<id>.jsonl
+pnpm ctx -- cursor analyze session.jsonl --json --cwd /path/to/workspace
+pnpm ctx -- cursor explain session.jsonl
+pnpm ctx -- cursor analyze session.jsonl --semantic-mode remote --semantic-provider jev
+```
+
+Shadow mode **analyzes what Context Engine would remove without
+modifying the Cursor session.**
 
 Semantic classification is **off by default**. Remote providers such as
 Jev run only with an explicit `--semantic-mode remote` and never send

@@ -1,0 +1,4 @@
+{"type":"session_meta","session_id":"fail-cursor","cwd":"/Users/user/project","cursor_version":"3.21.16"}
+{"role":"user","message":{"content":[{"type":"text","text":"Run tests."}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","id":"call_test","name":"Shell","input":{"command":"npm test"}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"call_test","content":"FAIL src/auth.test.ts\n1 failed, 0 passed\nError: expected true"}]}}

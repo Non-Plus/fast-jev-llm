@@ -1,0 +1,5 @@
+{"type":"session_meta","session_id":"unknown-cursor","cwd":"/Users/user/project","cursor_version":"3.21.16"}
+{"role":"user","message":{"content":[{"type":"text","text":"Hello"}]}}
+{"type":"cursor_secret_internal","payload":{"foo":1}}
+{"type":"turn_ended","status":"completed"}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Hi"}]}}

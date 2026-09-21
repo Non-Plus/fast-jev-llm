@@ -57,6 +57,16 @@ const SHELL_NAMES = new Set([
   "unified_exec",
 ]);
 
+const SEARCH_NAMES = new Set([
+  "grep",
+  "rg",
+  "search",
+  "web_search",
+  "websearch",
+  "codebase_search",
+  "semantic_search",
+]);
+
 const GIT_STATUS_RE = /^git\s+status\b/;
 const GIT_DIFF_RE = /^git\s+diff\b/;
 const FILE_READ_CMD_RE = /^(cat|head|tail|less|more|bat|type)\b/;
@@ -76,6 +86,7 @@ const PATH_KEYS = [
   "file",
   "target",
   "glob",
+  "glob_pattern",
   "pattern",
   "target_directory",
   "targetDirectory",
@@ -222,6 +233,12 @@ export function classifyTool(
   }
   if (n === "build" || (command && BUILD_CMD_RE.test(command))) {
     return { kind: "build_run", command, path };
+  }
+  if (SEARCH_NAMES.has(n)) {
+    const pattern = typeof args.pattern === "string" ? args.pattern : undefined;
+    const searchCommand =
+      command ?? (pattern !== undefined ? `rg ${pattern}${path ? ` ${path}` : ""}` : n);
+    return { kind: "command", command: searchCommand, path };
   }
   if (SHELL_NAMES.has(n) || command) {
     return { kind: "command", command: command ?? n, path };

@@ -1,15 +1,23 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { compact, formatStats, type SemanticMode, type SemanticProvider, type Transcript } from "@fast-jev/core";
 import {
   analyzeCodexSession,
-  formatShadowAnalysis,
-  formatShadowExplain,
-  toShadowJsonDocument,
-  writeShadowReport,
+  formatShadowAnalysis as formatCodexShadowAnalysis,
+  formatShadowExplain as formatCodexShadowExplain,
+  toShadowJsonDocument as toCodexShadowJsonDocument,
+  writeShadowReport as writeCodexShadowReport,
 } from "@fast-jev/adapter-codex";
+import {
+  analyzeCursorSession,
+  formatShadowAnalysis as formatCursorShadowAnalysis,
+  formatShadowExplain as formatCursorShadowExplain,
+  toShadowJsonDocument as toCursorShadowJsonDocument,
+  writeShadowReport as writeCursorShadowReport,
+} from "@fast-jev/adapter-cursor";
 import { jevProviderFromEnv } from "@fast-jev/provider-jev";
 import { codingSessionTranscript } from "../../fixtures/coding-session.ts";
 
@@ -37,10 +45,33 @@ function usage(): never {
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
   ctx codex explain <transcript.jsonl> [--preview-length <n>] [--no-previews]
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
+  ctx cursor analyze <session-source> [--json] [--save] [--save-dir <dir>] [--preview-length <n>]
+      [--report-previews] [--no-report-previews] [--cwd <dir>]
+      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
+  ctx cursor explain <session-source> [--preview-length <n>] [--no-report-previews]
+      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
 
 Default semantic-mode is off. Remote classification is never implicit.
-Shadow mode only. No Codex context is modified.`);
+Shadow mode only. No Codex or Cursor context is modified.`);
   process.exit(2);
+}
+
+async function resolveCursorSessionSource(input: string): Promise<string> {
+  const path = expandPath(input);
+  const info = await stat(path);
+  if (!info.isDirectory()) {
+    return path;
+  }
+  const nested = join(path, `${basename(path)}.jsonl`);
+  if (existsSync(nested)) {
+    return nested;
+  }
+  const entries = (await readdir(path)).filter((entry) => entry.endsWith(".jsonl")).sort();
+  const first = entries[0];
+  if (!first) {
+    throw new Error(`No .jsonl transcript found in ${path}`);
+  }
+  return join(path, first);
 }
 
 function takeFlag(args: string[], name: string): boolean {
@@ -148,7 +179,7 @@ async function runCodex(args: string[]): Promise<void> {
   );
 
   if (save || saveDir) {
-    const saved = await writeShadowReport(result, {
+    const saved = await writeCodexShadowReport(result, {
       ...(saveDir !== undefined ? { directory: saveDir } : {}),
       sourcePath: path,
     });
@@ -158,14 +189,79 @@ async function runCodex(args: string[]): Promise<void> {
   }
 
   if (command === "explain") {
-    console.log(formatShadowExplain(result));
+    console.log(formatCodexShadowExplain(result));
     return;
   }
   if (json) {
-    console.log(JSON.stringify(toShadowJsonDocument(result, path), null, 2));
+    console.log(JSON.stringify(toCodexShadowJsonDocument(result, path), null, 2));
     return;
   }
-  console.log(formatShadowAnalysis(result));
+  console.log(formatCodexShadowAnalysis(result));
+}
+
+async function runCursor(args: string[]): Promise<void> {
+  const command = args.shift();
+  if (command !== "analyze" && command !== "explain") {
+    usage();
+  }
+  const json = takeFlag(args, "--json");
+  const save = takeFlag(args, "--save");
+  const noPreviews = takeFlag(args, "--no-previews") || takeFlag(args, "--no-report-previews");
+  takeFlag(args, "--report-previews");
+  const saveDir = takeOption(args, "--save-dir");
+  const previewRaw = takeOption(args, "--preview-length");
+  const cwd = takeOption(args, "--cwd");
+  const cursorVersion = takeOption(args, "--cursor-version");
+  const semantic = resolveSemantic(args);
+  const file = args[0];
+  if (!file || args.length !== 1) {
+    usage();
+  }
+  if (command === "explain" && json) {
+    usage();
+  }
+
+  const previewLength = previewRaw !== undefined ? Number(previewRaw) : undefined;
+  if (previewLength !== undefined && (!Number.isFinite(previewLength) || previewLength <= 0)) {
+    throw new Error("--preview-length must be a positive number");
+  }
+
+  const path = await resolveCursorSessionSource(file);
+  const result = await analyzeCursorSession(
+    { path },
+    {
+      sourcePath: path,
+      ...(previewLength !== undefined ? { previewLength } : {}),
+      ...(noPreviews ? { reportPreviews: false } : {}),
+      ...(cwd !== undefined ? { cwd: expandPath(cwd) } : {}),
+      ...(cursorVersion !== undefined ? { cursorVersion } : {}),
+      config: {
+        semanticMode: semantic.mode,
+        semanticCache: semantic.cache,
+      },
+      ...(semantic.provider ? { semanticProvider: semantic.provider } : {}),
+    },
+  );
+
+  if (save || saveDir) {
+    const saved = await writeCursorShadowReport(result, {
+      ...(saveDir !== undefined ? { directory: saveDir } : {}),
+      sourcePath: path,
+    });
+    if (!json) {
+      console.error(`Wrote shadow report: ${saved}`);
+    }
+  }
+
+  if (command === "explain") {
+    console.log(formatCursorShadowExplain(result));
+    return;
+  }
+  if (json) {
+    console.log(JSON.stringify(toCursorShadowJsonDocument(result, path), null, 2));
+    return;
+  }
+  console.log(formatCursorShadowAnalysis(result));
 }
 
 const argv = process.argv.slice(2);
@@ -174,6 +270,8 @@ while (argv[0] === "--") {
 }
 if (argv[0] === "codex") {
   await runCodex(argv.slice(1));
+} else if (argv[0] === "cursor") {
+  await runCursor(argv.slice(1));
 } else if (argv[0] === "compact") {
   await runCompact(argv[1]);
 } else if (argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {

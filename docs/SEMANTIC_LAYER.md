@@ -74,3 +74,13 @@ ctx codex explain session.jsonl --semantic-mode remote --semantic-provider jev
 
 Still **shadow mode**: no Codex context, transcripts, compaction, or
 prompts are modified.
+
+## Cursor shadow
+
+```bash
+ctx cursor analyze session.jsonl
+ctx cursor analyze session.jsonl --semantic-mode remote --semantic-provider jev
+ctx cursor explain session.jsonl --semantic-mode remote --semantic-provider jev
+```
+
+Same semantic layer. Still **shadow mode**: no Cursor context is modified.

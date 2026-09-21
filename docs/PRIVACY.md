@@ -8,12 +8,12 @@ session context to a remote provider.
 
 With `semanticMode=off` (the default):
 
-- Codex JSONL transcripts
+- Codex and Cursor JSONL transcripts
 - source files and tool dumps
 - commands, secrets, and prompts
 - shadow reports (written under `.context-engine/` and gitignored)
 
-No telemetry. The Codex adapter does not open sockets.
+No telemetry. The Codex and Cursor adapters do not open sockets.
 
 ## Remote semantic mode
 
@@ -23,10 +23,14 @@ Remote classification happens only when **all** of these are true:
 2. a remote provider is supplied (`--semantic-provider jev`)
 3. `TYPESafe` / `JEV` credentials are present in the environment
 
-CLI example:
+CLI examples:
 
 ```bash
 ctx codex analyze session.jsonl \
+  --semantic-mode remote \
+  --semantic-provider jev
+
+ctx cursor analyze session.jsonl \
   --semantic-mode remote \
   --semantic-provider jev
 ```
@@ -58,7 +62,7 @@ Forbidden items are not included. Huge outputs are not duplicated.
 - recognized secret material (see gate + redaction)
 - API credentials (except the provider’s own request `Authorization`
   header, which is never logged)
-- Codex JSONL, compaction prompts, or original unredacted payloads
+- Codex or Cursor JSONL, compaction prompts, or original unredacted payloads
 
 ## Sensitive-content gate
 

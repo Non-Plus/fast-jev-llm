@@ -68,6 +68,8 @@ describe("classifyTool", () => {
 
   it("classifies writes and leftover shell as command/other", () => {
     expect(classifyTool("Write", { path: "a.ts" }).kind).toBe("file_write");
+    expect(classifyTool("Grep", { pattern: "login", path: "src" }).kind).toBe("command");
+    expect(classifyTool("Glob", { glob_pattern: "src/**" }).kind).toBe("directory_list");
     expect(classifyTool("Shell", { command: "npm run build" }).kind).toBe("build_run");
     expect(classifyTool("Shell", { command: "tsc" }).kind).toBe("build_run");
     expect(classifyTool("Shell", { command: "echo hello" }).kind).toBe("command");

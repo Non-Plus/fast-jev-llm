@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "description": "Optional Context Engine shadow analysis. Observation only; never modifies Cursor context.",
+  "hooks": {
+    "sessionEnd": [
+      {
+        "command": "node ./packages/adapter-cursor/dist/hook-cli.js",
+        "timeout": 3,
+        "failClosed": false
+      }
+    ]
+  }
+}

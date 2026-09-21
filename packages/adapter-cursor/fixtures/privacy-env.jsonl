@@ -1,0 +1,5 @@
+{"type":"session_meta","session_id":"privacy-cursor","cwd":"/Users/user/project","cursor_version":"3.21.16"}
+{"role":"user","message":{"content":[{"type":"text","text":"Never log secrets. Continue the auth work."}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","id":"env1","name":"Read","input":{"path":".env"}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"env1","content":"OPENAI_API_KEY=sk-aaaaaaaaaaaaaaaaaaaaaaaa"}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Historical leftover explanation after the env read."}]}}

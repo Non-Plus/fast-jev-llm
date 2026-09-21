@@ -1,0 +1,4 @@
+{"type":"session_meta","session_id":"unpaired-cursor","cwd":"/Users/user/project","cursor_version":"3.21.16"}
+{"role":"user","message":{"content":[{"type":"text","text":"Read auth.ts"}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"path":"src/auth.ts"}}]}}
+{"type":"turn_ended","status":"aborted"}

@@ -1,0 +1,7 @@
+{"type":"session_meta","session_id":"path-cursor","cwd":"/Users/user/project","cursor_version":"3.21.16","observed_wire_format":"cursor-agent-transcript-jsonl-v1"}
+{"role":"user","message":{"content":[{"type":"text","text":"Read the auth module three ways."}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","id":"r1","name":"Read","input":{"path":"./src/auth.ts"}},{"type":"tool_use","id":"r2","name":"Read","input":{"path":"src/auth.ts"}},{"type":"tool_use","id":"r3","name":"Read","input":{"path":"<workspace>/src/auth.ts"}},{"type":"tool_use","id":"r4","name":"Read","input":{"path":"/etc/passwd"}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r1","content":"export function login(user: string): boolean {\n  return false;\n}\n"}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r2","content":"export function login(user: string): boolean {\n  return false;\n}\n"}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r3","content":"export function login(user: string): boolean {\n  return false;\n}\n"}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r4","content":"root:x:0:0"}]}}
