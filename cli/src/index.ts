@@ -26,6 +26,7 @@ import {
   writeShadowReport as writeCursorShadowReport,
 } from "@fast-jev/adapter-cursor";
 import { jevProviderFromEnv } from "@fast-jev/provider-jev";
+import { PRODUCT_USAGE, runProductCommand } from "@fast-jev/local";
 import { codingSessionTranscript } from "../../fixtures/coding-session.ts";
 
 function workspaceCwd(): string {
@@ -47,6 +48,17 @@ function expandPath(input: string): string {
 
 function usage(): never {
   console.error(`Usage:
+  ctx setup [--dry-run] [--yes] [--agents codex,cursor,claude]
+      [--semantic-mode off|remote] [--confirm-remote]
+  ctx status
+  ctx doctor
+  ctx sessions [--agent <id>] [--workspace <name>] [--limit <n>]
+  ctx session <id>
+  ctx stats [--days <n>] [--agent <id>] [--json] [--export <file>]
+  ctx uninstall [codex|cursor|claude]
+  ctx reports prune --older-than 30d
+  ctx reports clear [--yes]
+  ctx dogfood status
   ctx compact [transcript.json]
   ctx codex analyze <transcript.jsonl> [--json] [--save] [--save-dir <dir>] [--preview-length <n>] [--no-previews]
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
@@ -64,7 +76,8 @@ function usage(): never {
       [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
 
 Default semantic-mode is off. Remote classification is never implicit.
-Shadow mode only. No Codex, Cursor, or Claude context is modified.`);
+Shadow mode only. No Codex, Cursor, or Claude context is modified.
+Context Engine stores shadow-analysis reports locally. It does not send usage telemetry.`);
   process.exit(2);
 }
 
@@ -361,6 +374,14 @@ const argv = process.argv.slice(2);
 while (argv[0] === "--") {
   argv.shift();
 }
+if (argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {
+  console.error(PRODUCT_USAGE);
+  process.exit(2);
+}
+const productExit = await runProductCommand(argv);
+if (productExit !== null) {
+  process.exit(productExit);
+}
 if (argv[0] === "codex") {
   await runCodex(argv.slice(1));
 } else if (argv[0] === "cursor") {
@@ -369,8 +390,6 @@ if (argv[0] === "codex") {
   await runClaude(argv.slice(1));
 } else if (argv[0] === "compact") {
   await runCompact(argv[1]);
-} else if (argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {
-  usage();
 } else {
   await runCompact(argv[0]);
 }

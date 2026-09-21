@@ -25,6 +25,10 @@ Claude JSONL  ─┘     → canonical Transcript  (@fast-jev/core types only)
 `analyzeClaudeSession()` never write to the source transcript. Parsers
 do not mutate in-memory event objects.
 
+Product commands (`ctx setup`, `ctx status`, `ctx stats`, …) are
+documented in [SETUP.md](SETUP.md) and [DOGFOODING.md](DOGFOODING.md).
+They still do not modify agent context.
+
 ## CLI
 
 Codex:

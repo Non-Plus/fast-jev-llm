@@ -8,6 +8,9 @@ and report what the engine would protect, keep, compress, and drop
 **without modifying those products**.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+[docs/SETUP.md](docs/SETUP.md),
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md),
+[docs/DOGFOODING.md](docs/DOGFOODING.md),
 [docs/SHADOW_MODE.md](docs/SHADOW_MODE.md),
 [docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md),
 [docs/PRIVACY.md](docs/PRIVACY.md),
@@ -21,6 +24,33 @@ and [docs/FAST_JEV_BASELINE.md](docs/FAST_JEV_BASELINE.md).
 
 - Node.js 22+
 - pnpm
+
+## Everyday shadow dogfooding
+
+```bash
+pnpm install
+pnpm ctx -- setup
+```
+
+Use Codex, Cursor, and Claude Code as usual. Then:
+
+```bash
+pnpm ctx -- stats
+```
+
+`ctx setup` installs **passive SessionEnd hooks only**. It does not
+rewrite context. Reports stay on disk under `~/.context-engine/`.
+Context Engine stores shadow-analysis reports locally. It does not send
+usage telemetry.
+
+```bash
+pnpm ctx -- status
+pnpm ctx -- doctor
+pnpm ctx -- sessions
+pnpm ctx -- session <id>
+pnpm ctx -- stats --days 7
+pnpm ctx -- dogfood status
+```
 
 ## Commands
 

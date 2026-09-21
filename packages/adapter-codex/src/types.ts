@@ -124,6 +124,7 @@ export interface ShadowAnalysisResult {
   timestamp?: string;
   model?: string;
   cwd?: string;
+  cliVersion?: string;
   originalTokens: number;
   protectedTokens: number;
   protectedVerbatimTokens: number;

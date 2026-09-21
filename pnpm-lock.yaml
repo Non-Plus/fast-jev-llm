@@ -63,6 +63,9 @@ importers:
       '@fast-jev/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@fast-jev/local':
+        specifier: workspace:*
+        version: link:../packages/local
       '@fast-jev/provider-jev':
         specifier: workspace:*
         version: link:../packages/providers/jev
@@ -132,6 +135,34 @@ importers:
         version: 3.2.7(@types/node@22.20.4)(tsx@4.23.15)
 
   packages/core:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.10
+        version: 22.20.4
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.8
+        version: 3.2.7(@types/node@22.20.4)(tsx@4.23.15)
+
+  packages/local:
+    dependencies:
+      '@fast-jev/adapter-claude':
+        specifier: workspace:*
+        version: link:../adapter-claude
+      '@fast-jev/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
+      '@fast-jev/adapter-cursor':
+        specifier: workspace:*
+        version: link:../adapter-cursor
+      '@fast-jev/core':
+        specifier: workspace:*
+        version: link:../core
+      '@fast-jev/provider-jev':
+        specifier: workspace:*
+        version: link:../providers/jev
     devDependencies:
       '@types/node':
         specifier: ^22.13.10

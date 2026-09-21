@@ -113,3 +113,25 @@ characters sent externally, semantic decisions, and merged decisions.
 
 They do not record credentials or unredacted provider payloads.
 Use `--no-previews` to omit even local content previews.
+
+### Local dogfooding store
+
+`ctx setup` writes aggregate session reports under
+`~/.context-engine/reports/`. Those files default to:
+
+- no source code
+- no full prompts
+- no tool output
+- no secrets
+- no absolute project paths (hashed `workspaceId` plus optional basename)
+
+Detailed previews require explicit `reportPreviews` configuration.
+There is **no cloud telemetry**, analytics SDK, crash reporter, usage
+beacon, or automatic upload.
+
+> Context Engine stores shadow-analysis reports locally. It does not send
+> usage telemetry.
+
+Remote semantic provider calls are separate and occur only when
+explicitly configured (`semanticMode=remote` plus a provider and
+credentials).

@@ -7,4 +7,5 @@ coverage
 *.tsbuildinfo
 .pnpm-store
 .context-engine
+packages/local/.testhomes
 

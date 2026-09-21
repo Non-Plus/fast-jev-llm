@@ -14,6 +14,7 @@
     "@fast-jev/adapter-codex": "workspace:*",
     "@fast-jev/adapter-cursor": "workspace:*",
     "@fast-jev/core": "workspace:*",
+    "@fast-jev/local": "workspace:*",
     "@fast-jev/provider-jev": "workspace:*"
   },
   "devDependencies": {

@@ -301,6 +301,7 @@ export function toShadowResult(
     ...(parsed.meta.timestamp !== undefined ? { timestamp: parsed.meta.timestamp } : {}),
     ...(parsed.meta.model !== undefined ? { model: parsed.meta.model } : {}),
     ...(parsed.meta.cwd !== undefined ? { cwd: parsed.meta.cwd } : {}),
+    ...(parsed.meta.cliVersion !== undefined ? { cliVersion: parsed.meta.cliVersion } : {}),
     originalTokens: statistics.originalTokens,
     protectedTokens: statistics.protectedTokens,
     protectedVerbatimTokens: statistics.protectedVerbatimTokens,
