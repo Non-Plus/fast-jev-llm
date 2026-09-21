@@ -1,0 +1,3 @@
+{"timestamp":"2026-09-21T08:00:00.000Z","type":"session_meta","payload":{"id":"unpaired-result","session_id":"unpaired-result","cwd":"/Users/user/project"}}
+{"timestamp":"2026-09-21T08:00:01.000Z","type":"response_item","payload":{"type":"message","id":"msg_u","role":"user","content":[{"type":"input_text","text":"Continue."}]}}
+{"timestamp":"2026-09-21T08:00:02.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","id":"ctco_orphan","call_id":"call_never_seen","output":"orphan tool result without a matching call"}}

@@ -1,0 +1,13 @@
+{"timestamp":"2026-09-21T07:00:00.000Z","type":"session_meta","payload":{"id":"multi-turn","session_id":"multi-turn","cwd":"/Users/user/project"}}
+{"timestamp":"2026-09-21T07:00:01.000Z","type":"turn_context","payload":{"turn_id":"t1","cwd":"/Users/user/project","model":"gpt-5.4"}}
+{"timestamp":"2026-09-21T07:00:02.000Z","type":"response_item","payload":{"type":"message","id":"msg_u1","role":"user","content":[{"type":"input_text","text":"Show git status."}]}}
+{"timestamp":"2026-09-21T07:00:03.000Z","type":"response_item","payload":{"type":"custom_tool_call","id":"ctc_1","call_id":"call_status_1","name":"exec","input":"const r = await tools.exec_command({cmd:\"git status\",\"workdir\":\"/Users/user/project\"});text(r.output);"}}
+{"timestamp":"2026-09-21T07:00:04.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","id":"ctco_1","call_id":"call_status_1","output":"clean"}}
+{"timestamp":"2026-09-21T07:00:05.000Z","type":"response_item","payload":{"type":"message","id":"msg_a1","role":"assistant","content":[{"type":"output_text","text":"Working tree is clean."}]}}
+{"timestamp":"2026-09-21T07:01:00.000Z","type":"turn_context","payload":{"turn_id":"t2","cwd":"/Users/user/project","model":"gpt-5.4"}}
+{"timestamp":"2026-09-21T07:01:01.000Z","type":"response_item","payload":{"type":"message","id":"msg_u2","role":"user","content":[{"type":"input_text","text":"Run the tests now. Do not change public APIs."}]}}
+{"timestamp":"2026-09-21T07:01:02.000Z","type":"response_item","payload":{"type":"custom_tool_call","id":"ctc_2","call_id":"call_test_2","name":"exec","input":"const r = await tools.exec_command({cmd:\"pnpm test\",\"workdir\":\"/Users/user/project\"});text(r.output);"}}
+{"timestamp":"2026-09-21T07:01:03.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","id":"ctco_2","call_id":"call_test_2","output":"1 passed, 0 failed"}}
+{"timestamp":"2026-09-21T07:01:04.000Z","type":"response_item","payload":{"type":"custom_tool_call","id":"ctc_3","call_id":"call_status_2","name":"exec","input":"const r = await tools.exec_command({cmd:\"git status --porcelain\",\"workdir\":\"/Users/user/project\"});text(r.output);"}}
+{"timestamp":"2026-09-21T07:01:05.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","id":"ctco_3","call_id":"call_status_2","output":""}}
+{"timestamp":"2026-09-21T07:01:06.000Z","type":"response_item","payload":{"type":"message","id":"msg_a2","role":"assistant","content":[{"type":"output_text","text":"Tests passed and the tree is still clean."}]}}

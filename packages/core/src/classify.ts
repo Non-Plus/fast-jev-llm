@@ -52,6 +52,9 @@ const SHELL_NAMES = new Set([
   "run_terminal_cmd",
   "execute",
   "exec",
+  "exec_command",
+  "shell_command",
+  "unified_exec",
 ]);
 
 const GIT_STATUS_RE = /^git\s+status\b/;
@@ -60,6 +63,8 @@ const FILE_READ_CMD_RE = /^(cat|head|tail|less|more|bat|type)\b/;
 const DIR_CMD_RE = /^(ls|dir|tree|find|fd|glob)\b/;
 const TEST_CMD_RE =
   /\b((npm|pnpm|yarn)\s+(run\s+)?test(\b|:)|(npx\s+)?vitest\b|\bjest\b|\bpytest\b|\bmocha\b|\bcargo\s+test\b|\bgo\s+test\b|\bplaywright\s+test\b)/;
+const BUILD_CMD_RE =
+  /\b((npm|pnpm|yarn)\s+(run\s+)?build\b|cargo\s+build\b|tsc\b|webpack\b|vite\s+build\b|mvn\s+package\b|gradlew?\s+build\b)/;
 
 const PATH_KEYS = [
   "path",
@@ -215,6 +220,9 @@ export function classifyTool(
       testTarget: extractTestTarget(args, command),
     };
   }
+  if (n === "build" || (command && BUILD_CMD_RE.test(command))) {
+    return { kind: "build_run", command, path };
+  }
   if (SHELL_NAMES.has(n) || command) {
     return { kind: "command", command: command ?? n, path };
   }
@@ -268,6 +276,9 @@ export function isToolFailure(options: {
   if (options.kind === "test_run") {
     return isTestFailureFromOutput(options.result ?? "");
   }
+  if (options.kind === "build_run") {
+    return /\bfail|error ts\d+|failed to compile/i.test(options.result ?? "");
+  }
   return false;
 }
 
@@ -302,6 +313,9 @@ export function classifyFailureKind(options: {
   }
   if (options.kind === "test_run") {
     return "test";
+  }
+  if (options.kind === "build_run") {
+    return "build";
   }
   const blob = `${options.command ?? ""} ${options.result ?? ""}`.toLowerCase();
   if (/\b(eslint|lint|ruff|pylint)\b/.test(blob)) {

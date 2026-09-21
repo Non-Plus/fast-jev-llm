@@ -6,8 +6,13 @@
     "build": "node -e \"process.exit(0)\"",
     "start": "tsx src/index.ts"
   },
+  "bin": {
+    "ctx": "./src/index.ts"
+  },
   "dependencies": {
-    "@fast-jev/core": "workspace:*"
+    "@fast-jev/adapter-codex": "workspace:*",
+    "@fast-jev/core": "workspace:*",
+    "@fast-jev/provider-jev": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

@@ -33,6 +33,10 @@ describe("classifyTool", () => {
     expect(classified.path).toBe("src/server.ts");
   });
 
+  it("classifies exec_command git status from the command, not the generic shell name", () => {
+    expect(classifyTool("exec_command", { command: "git status" }).kind).toBe("git_status");
+  });
+
   it("classifies git status and git diff before generic commands", () => {
     expect(classifyTool("Shell", { command: "git status --porcelain" }).kind).toBe(
       "git_status",
@@ -64,6 +68,8 @@ describe("classifyTool", () => {
 
   it("classifies writes and leftover shell as command/other", () => {
     expect(classifyTool("Write", { path: "a.ts" }).kind).toBe("file_write");
+    expect(classifyTool("Shell", { command: "npm run build" }).kind).toBe("build_run");
+    expect(classifyTool("Shell", { command: "tsc" }).kind).toBe("build_run");
     expect(classifyTool("Shell", { command: "echo hello" }).kind).toBe("command");
     expect(classifyTool("mystery", {}).kind).toBe("other");
   });

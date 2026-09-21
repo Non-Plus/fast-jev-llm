@@ -1,0 +1,4 @@
+{"timestamp":"2026-09-21T04:00:00.000Z","type":"session_meta","payload":{"id":"unknown-event","session_id":"unknown-event","cwd":"/Users/user/project"}}
+{"timestamp":"2026-09-21T04:00:01.000Z","type":"mystery_event","payload":{"hello":"world","noise":true}}
+{"timestamp":"2026-09-21T04:00:02.000Z","type":"response_item","payload":{"type":"future_widget","id":"w1","data":{"x":1}}}
+{"timestamp":"2026-09-21T04:00:03.000Z","type":"response_item","payload":{"type":"message","id":"msg_u","role":"user","content":[{"type":"input_text","text":"Still works after unknown events."}]}}

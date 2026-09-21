@@ -1,5 +1,8 @@
 import { classifyFailureKind, classifyTool, parseArguments } from "./classify.js";
 import { annotateFileState, normalizePath } from "./file-state.js";
+import { annotateImportance } from "./importance.js";
+import { inferOrigin } from "./origin.js";
+import { outputHashes } from "./output-hash.js";
 import { collectRelations } from "./relations.js";
 import { inferTaskState } from "./task.js";
 import { resolveEstimator } from "./tokens.js";
@@ -79,6 +82,9 @@ function buildToolMeta(call: ToolCall, result?: ToolResult): ToolMeta {
   }
   if (result?.content !== undefined) {
     meta.result = result.content;
+    const hashes = outputHashes(result.content);
+    meta.rawContentHash = hashes.rawContentHash;
+    meta.normalizedContentHash = hashes.normalizedContentHash;
   }
   if (result?.exitCode !== undefined) {
     meta.exitCode = result.exitCode;
@@ -193,11 +199,14 @@ export function normalizeTranscript(
     }
 
     if (text.length > 0) {
+      const inferred = inferOrigin(message);
       const item: Omit<ContextItem, "id" | "tokenCount"> = {
         kind: "message",
         role: message.role,
         content: typeof message.content === "string" ? message.content : text,
         messageIds: [message.id],
+        origin: inferred.origin,
+        ...(inferred.originVendor !== undefined ? { originVendor: inferred.originVendor } : {}),
         ...(message.createdAt !== undefined ? { createdAt: message.createdAt } : {}),
         ...(message.metadata !== undefined ? { metadata: message.metadata } : {}),
       };
@@ -239,6 +248,33 @@ export function normalizeTranscript(
   }
 
   annotateFileState(items);
+  for (const item of items) {
+    if (!item.origin) {
+      if (item.kind === "unpaired_tool_call") {
+        item.origin = "agent";
+      } else if (item.kind === "tool_pair" || item.kind === "unpaired_tool_result") {
+        item.origin = "tool";
+      } else if (item.role === "user") {
+        item.origin = "user";
+      } else if (item.role === "assistant") {
+        item.origin = "agent";
+      } else if (item.role === "system") {
+        item.origin = "system";
+      } else {
+        item.origin = "unknown";
+      }
+    }
+    const text = item.tool?.result ?? item.content;
+    const hashes = outputHashes(text);
+    item.rawContentHash = hashes.rawContentHash;
+    item.normalizedContentHash = hashes.normalizedContentHash;
+    if (item.tool) {
+      item.tool.rawContentHash = item.tool.rawContentHash ?? hashes.rawContentHash;
+      item.tool.normalizedContentHash =
+        item.tool.normalizedContentHash ?? hashes.normalizedContentHash;
+    }
+  }
+  annotateImportance(items);
   return items;
 }
 

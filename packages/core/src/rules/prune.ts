@@ -1,11 +1,14 @@
 import { isToolFailure, isToolSuccess } from "../classify.js";
 import { itemPath } from "../file-state.js";
 import { makeDecision } from "../reasons.js";
+import { budgetForKind } from "../budgets.js";
+import { outputHashes } from "../output-hash.js";
 import type {
   ContextDecision,
   ContextItem,
   EngineConfig,
   PruningRule,
+  ReasonCode,
 } from "../types.js";
 import { dropOlderByKey } from "./shared.js";
 
@@ -192,32 +195,28 @@ export function successfulTestSupersedesFailures(
   return decisions;
 }
 
-function normalizeOutput(text: string): string {
-  return text.replace(/\r\n/g, "\n").trimEnd();
-}
-
-function commandOutput(item: ContextItem): string {
-  return normalizeOutput(item.tool?.result ?? item.content);
-}
-
-function commandKey(item: ContextItem): string | undefined {
+function commandIdentity(item: ContextItem): string | undefined {
   if (!item.tool) {
     return undefined;
   }
-  if (
-    item.tool.kind === "file_read" ||
-    item.tool.kind === "file_write" ||
-    item.tool.kind === "git_status" ||
-    item.tool.kind === "git_diff" ||
-    item.tool.kind === "directory_list" ||
-    item.tool.kind === "test_run"
-  ) {
+  if (item.tool.kind === "file_read" || item.tool.kind === "file_write") {
     return undefined;
   }
-  if (item.tool.kind !== "command" && item.tool.kind !== "other") {
+  return item.tool.command ?? item.tool.name;
+}
+
+function normalizedHashOf(item: ContextItem): string | undefined {
+  if (item.normalizedContentHash) {
+    return item.normalizedContentHash;
+  }
+  if (item.tool?.normalizedContentHash) {
+    return item.tool.normalizedContentHash;
+  }
+  const text = item.tool?.result;
+  if (typeof text !== "string") {
     return undefined;
   }
-  return item.tool.command ?? `${item.tool.name}:${JSON.stringify(item.tool.args)}`;
+  return outputHashes(text).normalizedContentHash;
 }
 
 export function repeatedCommandOutputs(items: readonly ContextItem[]): ContextDecision[] {
@@ -227,11 +226,12 @@ export function repeatedCommandOutputs(items: readonly ContextItem[]): ContextDe
     if (!item) {
       continue;
     }
-    const key = commandKey(item);
-    if (key === undefined) {
+    const identity = commandIdentity(item);
+    const hash = normalizedHashOf(item);
+    if (identity === undefined || hash === undefined) {
       continue;
     }
-    const signature = `${key}\n${commandOutput(item)}`;
+    const signature = `${identity}\n${hash}`;
     if (!latestIdentical.has(signature)) {
       latestIdentical.set(signature, item.id);
     }
@@ -239,11 +239,12 @@ export function repeatedCommandOutputs(items: readonly ContextItem[]): ContextDe
 
   const decisions: ContextDecision[] = [];
   for (const item of items) {
-    const key = commandKey(item);
-    if (key === undefined) {
+    const identity = commandIdentity(item);
+    const hash = normalizedHashOf(item);
+    if (identity === undefined || hash === undefined) {
       continue;
     }
-    const signature = `${key}\n${commandOutput(item)}`;
+    const signature = `${identity}\n${hash}`;
     const keepId = latestIdentical.get(signature);
     if (keepId !== undefined && keepId !== item.id) {
       decisions.push(
@@ -252,13 +253,30 @@ export function repeatedCommandOutputs(items: readonly ContextItem[]): ContextDe
           itemId: item.id,
           rule: "repeated-command-output",
           reasonCode: "DUPLICATE_OUTPUT",
-          reason: `Later execution of "${key}" produced identical output`,
+          reason: `Later execution of "${identity}" produced equivalent output`,
           authority: "heuristic",
+          retention: "normal",
+          compression: "allowed",
         }),
       );
     }
   }
   return decisions;
+}
+
+function largeOutputReason(item: ContextItem): { code: ReasonCode; label: string } {
+  switch (item.tool?.kind) {
+    case "build_run":
+      return { code: "LARGE_BUILD_OUTPUT", label: "build" };
+    case "test_run":
+      return { code: "LARGE_TEST_OUTPUT", label: "test" };
+    case "git_diff":
+      return { code: "LARGE_GIT_DIFF", label: "git diff" };
+    case "directory_list":
+      return { code: "LARGE_DIRECTORY_LISTING", label: "directory listing" };
+    default:
+      return { code: "LARGE_OUTPUT", label: "tool" };
+  }
 }
 
 export function compressLargeOutput(
@@ -267,20 +285,24 @@ export function compressLargeOutput(
 ): ContextDecision[] {
   const decisions: ContextDecision[] = [];
   for (const item of items) {
-    if (item.kind === "message") {
+    if (item.kind === "message" || item.kind === "unpaired_tool_call") {
       continue;
     }
-    if (item.tokenCount <= config.largeOutputTokens) {
+    const budget = budgetForKind(item.tool?.kind, config);
+    if (item.tokenCount <= budget) {
       continue;
     }
+    const reason = largeOutputReason(item);
     decisions.push(
       makeDecision({
         action: "COMPRESS",
         itemId: item.id,
         rule: "compress-large-output",
-        reasonCode: "LARGE_OUTPUT",
-        reason: `Tool output is ${item.tokenCount} tokens (threshold ${config.largeOutputTokens})`,
+        reasonCode: reason.code,
+        reason: `${reason.label} output is ${item.tokenCount} tokens (budget ${budget})`,
         authority: "heuristic",
+        retention: "normal",
+        compression: "allowed",
       }),
     );
   }

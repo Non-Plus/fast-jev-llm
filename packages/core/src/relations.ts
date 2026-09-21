@@ -140,5 +140,24 @@ export function collectRelations(items: readonly ContextItem[]): ContextRelation
     }
   });
 
+  const byIdentityHash = new Map<string, ContextItem[]>();
+  for (const item of items) {
+    const identity = item.tool?.command ?? item.tool?.name;
+    const hash = item.normalizedContentHash ?? item.tool?.normalizedContentHash;
+    if (!identity || !hash) {
+      continue;
+    }
+    if (item.tool?.kind === "file_read" || item.tool?.kind === "file_write") {
+      continue;
+    }
+    const key = `${identity}\n${hash}`;
+    const list = byIdentityHash.get(key) ?? [];
+    list.push(item);
+    byIdentityHash.set(key, list);
+  }
+  for (const list of byIdentityHash.values()) {
+    supersedeOlder(relations, list, "repeated-command-output");
+  }
+
   return relations;
 }

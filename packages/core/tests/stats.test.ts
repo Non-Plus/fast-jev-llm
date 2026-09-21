@@ -46,6 +46,8 @@ describe("computeStats", () => {
         reason: "constraint",
         reasonCode: "USER_CONSTRAINT",
         authority: "safety",
+        retention: "protected",
+        compression: "forbidden",
       },
       {
         action: "KEEP",
@@ -54,6 +56,8 @@ describe("computeStats", () => {
         reason: "keep",
         reasonCode: "DEFAULT_KEEP",
         authority: "heuristic",
+        retention: "normal",
+        compression: "allowed",
       },
       {
         action: "COMPRESS",
@@ -62,6 +66,8 @@ describe("computeStats", () => {
         reason: "big",
         reasonCode: "LARGE_OUTPUT",
         authority: "heuristic",
+        retention: "normal",
+        compression: "allowed",
       },
       {
         action: "DROP",
@@ -70,6 +76,8 @@ describe("computeStats", () => {
         reason: "old",
         reasonCode: "SUPERSEDED_FILE_READ",
         authority: "structural",
+        retention: "normal",
+        compression: "allowed",
       },
     ];
 
@@ -84,6 +92,10 @@ describe("computeStats", () => {
     expect(stats.compressedTokens).toBe(4);
     expect(stats.droppedCount).toBe(1);
     expect(stats.droppedTokens).toBe(40);
+    expect(stats.protectedVerbatimTokens).toBe(10);
+    expect(stats.compressionSavings).toBe(96);
+    expect(stats.dropSavings).toBe(40);
+    expect(stats.totalPotentialSavings).toBe(136);
     expect(stats.byRule["superseded-file-read"]).toEqual({ count: 1, tokens: 40 });
   });
 
@@ -91,7 +103,7 @@ describe("computeStats", () => {
     const stats = computeStats(
       [makeItem({ id: "a", content: "aaaa", tokenCount: 8 })],
       [makeItem({ id: "a", content: "aaaa", tokenCount: 8 })],
-      [{ action: "KEEP", itemId: "a", rule: "default", reason: "keep", reasonCode: "DEFAULT_KEEP", authority: "heuristic" }],
+      [{ action: "KEEP", itemId: "a", rule: "default", reason: "keep", reasonCode: "DEFAULT_KEEP", authority: "heuristic", retention: "normal", compression: "allowed" }],
     );
     const text = formatStats(stats, "sess");
     expect(text).toContain("Session: sess");

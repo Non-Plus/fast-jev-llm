@@ -15,7 +15,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@fast-jev/core": "workspace:*"
+    "@fast-jev/core": "workspace:*",
+    "@fast-jev/provider-jev": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

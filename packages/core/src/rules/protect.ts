@@ -1,4 +1,6 @@
 import { failureKey, isToolFailure, isToolSuccess } from "../classify.js";
+import { isCompressibleToolItem } from "../engine.js";
+import { itemLooksLikeSafetyInstruction } from "../origin.js";
 import { makeDecision } from "../reasons.js";
 import { isAck, isConstraintMessage } from "../signals.js";
 import type {
@@ -14,6 +16,10 @@ function protect(
   reasonCode: ContextDecision["reasonCode"],
   reason: string,
   authority: ContextDecision["authority"],
+  extras?: {
+    compression?: ContextDecision["compression"];
+    importance?: ContextDecision["importance"];
+  },
 ): ContextDecision {
   return makeDecision({
     action: "PROTECT",
@@ -22,35 +28,41 @@ function protect(
     reasonCode,
     reason,
     authority,
+    retention: "protected",
+    compression: extras?.compression ?? "forbidden",
+    ...(extras?.importance !== undefined ? { importance: extras.importance } : {}),
   });
 }
 
 export function systemInstructions(items: readonly ContextItem[]): ContextDecision[] {
   return items
-    .filter((item) => item.kind === "message" && item.role === "system")
+    .filter((item) => item.kind === "message" && itemLooksLikeSafetyInstruction(item))
     .map((item) =>
-      protect(
-        item,
-        "system-instructions",
-        "SYSTEM_INSTRUCTION",
-        "System messages are standing instructions",
-        "safety",
-      ),
+    protect(
+      item,
+      "system-instructions",
+      "SYSTEM_INSTRUCTION",
+      "System/developer safety instructions are standing policy",
+      "safety",
+      { compression: "forbidden", importance: "CRITICAL" },
+    ),
     );
 }
 
 export function explicitUserConstraints(items: readonly ContextItem[]): ContextDecision[] {
-  return items
-    .filter(isConstraintMessage)
-    .map((item) =>
-      protect(
-        item,
-        "explicit-user-constraint",
-        "USER_CONSTRAINT",
-        "User message states an explicit constraint or standing instruction",
-        "safety",
-      ),
-    );
+  return items.filter(isConstraintMessage).map((item) =>
+    makeDecision({
+      action: "PROTECT",
+      itemId: item.id,
+      rule: "explicit-user-constraint",
+      reasonCode: "USER_CONSTRAINT",
+      reason: "User message states an explicit constraint or standing instruction",
+      authority: "safety",
+      retention: "protected",
+      compression: "forbidden",
+      importance: "CRITICAL",
+    }),
+  );
 }
 
 export function currentTask(items: readonly ContextItem[]): ContextDecision[] {
@@ -70,6 +82,7 @@ export function currentTask(items: readonly ContextItem[]): ContextDecision[] {
       "CURRENT_TASK",
       "Most recent substantive user message is the current task",
       "safety",
+      { compression: "forbidden", importance: "CRITICAL" },
     ),
   ];
 }
@@ -109,6 +122,7 @@ export function unresolvedErrors(items: readonly ContextItem[]): ContextDecision
         "UNRESOLVED_ERROR",
         `Current unresolved error for "${key}"`,
         "safety",
+        { compression: "allowed", importance: "IMPORTANT" },
       ),
     );
   }
@@ -123,15 +137,20 @@ export function recentItems(
     return [];
   }
   const start = Math.max(0, items.length - config.recentItemCount);
-  return items.slice(start).map((item, offset) =>
-    protect(
+  return items.slice(start).map((item, offset) => {
+    const toolResult = isCompressibleToolItem(item);
+    const compression = toolResult ? "allowed" : "forbidden";
+    return protect(
       item,
       "recent-items",
       "RECENT_CONTEXT",
-      `Item is within the last ${config.recentItemCount} items (offset ${offset} from window start)`,
+      toolResult
+        ? `Recent tool result cannot be dropped; structured compression is allowed (offset ${offset})`
+        : `Recent ${item.kind} cannot be dropped or compressed (offset ${offset})`,
       "heuristic",
-    ),
-  );
+      { compression },
+    );
+  });
 }
 
 export const protectRules: PruningRule[] = [

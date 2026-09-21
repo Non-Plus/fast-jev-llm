@@ -1,0 +1,17 @@
+{
+  "description": "Optional Context Engine shadow analysis. Observation only; never modifies Codex context.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./packages/adapter-codex/dist/hook-cli.js",
+            "timeout": 3,
+            "statusMessage": "Context Engine shadow analysis"
+          }
+        ]
+      }
+    ]
+  }
+}

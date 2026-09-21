@@ -179,6 +179,15 @@ describe("deterministic prune rules", () => {
     expect(decisions).toEqual([]);
   });
 
+  it("drops earlier generic command output when normalized hashes match", () => {
+    const decisions = repeatedCommandOutputs([
+      command("e1", "pwd", "[2026-09-21T00:00:00Z] /repo"),
+      command("e2", "pwd", "[2026-09-21T01:00:00Z] /repo"),
+    ]);
+    expect(decisions.map((decision) => decision.itemId)).toEqual(["e1"]);
+    expect(decisions[0]?.reasonCode).toBe("DUPLICATE_OUTPUT");
+  });
+
   it("does not treat reads of the same path as equivalent when a write lands between them", () => {
     const duplicate = supersededFileReads([
       fileRead("r1", "src/a.ts"),
@@ -231,7 +240,42 @@ describe("deterministic prune rules", () => {
         action: "COMPRESS",
         itemId: "big",
         rule: "compress-large-output",
+        reasonCode: "LARGE_OUTPUT",
       }),
+    ]);
+  });
+
+  it("uses structured reason codes for known tool kinds", () => {
+    const build = makeToolItem(
+      "b",
+      { name: "Shell", kind: "build_run", callId: "b", args: {}, command: "npm run build" },
+      "log",
+      5000,
+    );
+    const test = makeToolItem(
+      "t",
+      { name: "Shell", kind: "test_run", callId: "t", args: {}, command: "pnpm test", testTarget: "pnpm test" },
+      "log",
+      5000,
+    );
+    const diff = makeToolItem(
+      "d",
+      { name: "Shell", kind: "git_diff", callId: "d", args: {}, command: "git diff" },
+      "log",
+      5000,
+    );
+    const listing = makeToolItem(
+      "l",
+      { name: "Shell", kind: "directory_list", callId: "l", args: {}, path: "." },
+      "log",
+      5000,
+    );
+    const decisions = compressLargeOutput([build, test, diff, listing], DEFAULT_CONFIG);
+    expect(decisions.map((decision) => decision.reasonCode)).toEqual([
+      "LARGE_BUILD_OUTPUT",
+      "LARGE_TEST_OUTPUT",
+      "LARGE_GIT_DIFF",
+      "LARGE_DIRECTORY_LISTING",
     ]);
   });
 

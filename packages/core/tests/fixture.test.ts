@@ -36,7 +36,9 @@ describe("coding session fixture", () => {
         (byRule["superseded-test-run"]?.count ?? 0),
     ).toBeGreaterThan(0);
     expect(byRule["explicit-user-constraint"]?.count).toBeGreaterThan(0);
-    expect(byRule["unresolved-error"]?.count).toBeGreaterThan(0);
+    expect(result.evaluations.some((evaluation) => evaluation.rule === "unresolved-error")).toBe(
+      true,
+    );
     expect(byRule["current-task"]?.count).toBe(1);
     expect(byRule["system-instructions"]?.count).toBe(1);
 

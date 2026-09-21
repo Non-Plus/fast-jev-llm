@@ -44,6 +44,8 @@ describe("compact pipeline", () => {
       expect(decision.rule.length).toBeGreaterThan(0);
       expect(decision.reasonCode.length).toBeGreaterThan(0);
       expect(["safety", "structural", "heuristic", "semantic"]).toContain(decision.authority);
+      expect(["protected", "normal"]).toContain(decision.retention);
+      expect(["allowed", "forbidden"]).toContain(decision.compression);
     }
     expect(result.decisionRecords).toHaveLength(result.items.length);
     expect(result.evaluations.length).toBeGreaterThan(0);
@@ -104,19 +106,10 @@ describe("compact pipeline", () => {
   });
 
   it("lets a semantic provider drop unprotected KEEP items but not PROTECT", async () => {
-    const provider: SemanticProvider = {
-      name: "fake-jev",
-      async classify(items) {
-        return items.map((item) => ({
-          action: "DROP" as const,
-          itemId: item.id,
-          rule: "semantic-drop-all",
-          reason: "provider asked to drop",
-          reasonCode: "SEMANTIC_CLASSIFICATION" as const,
-          authority: "semantic" as const,
-        }));
-      },
-    };
+    const { MockSemanticProvider } = await import("../src/semantic/mock.js");
+    const provider = new MockSemanticProvider({
+      defaultResponse: { action: "DROP", reason: "provider asked to drop" },
+    });
 
     const result = await compact(
       transcript([
@@ -124,7 +117,10 @@ describe("compact pipeline", () => {
         message("u1", "user", "Never change public APIs."),
         message("a1", "assistant", "I will inspect the code."),
       ]),
-      { config: { recentItemCount: 0 }, semanticProvider: provider },
+      {
+        config: { recentItemCount: 0, semanticMode: "local" },
+        semanticProvider: provider,
+      },
     );
 
     const byId = new Map(result.decisions.map((decision) => [decision.itemId, decision]));
@@ -135,7 +131,7 @@ describe("compact pipeline", () => {
     expect(byId.get(system!.id)?.action).toBe("PROTECT");
     expect(byId.get(constraint!.id)?.action).toBe("PROTECT");
     expect(byId.get(assistant!.id)).toEqual(
-      expect.objectContaining({ action: "DROP", rule: "semantic-drop-all" }),
+      expect.objectContaining({ action: "DROP", authority: "semantic" }),
     );
   });
 

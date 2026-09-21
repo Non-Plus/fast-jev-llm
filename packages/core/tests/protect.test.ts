@@ -116,4 +116,46 @@ describe("protected-context rules", () => {
     expect(decisions.map((decision) => decision.itemId)).toEqual(["i4", "i5"]);
     expect(decisions.every((decision) => decision.rule === "recent-items")).toBe(true);
   });
+
+  it("allows compression on recent tool results and forbids it on recent user text", () => {
+    const user = makeItem({ id: "u", role: "user", content: "Never log secrets." });
+    const tool = makeToolItem(
+      "t",
+      {
+        name: "Shell",
+        kind: "build_run",
+        callId: "t",
+        args: { command: "npm run build" },
+        command: "npm run build",
+        result: "error TS2322",
+      },
+      "error TS2322",
+      20_000,
+    );
+    const decisions = recentItems([user, tool], { ...DEFAULT_CONFIG, recentItemCount: 2 });
+    const userDecision = decisions.find((decision) => decision.itemId === "u");
+    const toolDecision = decisions.find((decision) => decision.itemId === "t");
+    expect(userDecision).toEqual(
+      expect.objectContaining({
+        retention: "protected",
+        compression: "forbidden",
+      }),
+    );
+    expect(toolDecision).toEqual(
+      expect.objectContaining({
+        retention: "protected",
+        compression: "allowed",
+      }),
+    );
+  });
+
+  it("does not treat plugin dumps as system safety instructions", () => {
+    const plugin = makeItem({
+      id: "plug",
+      role: "system",
+      origin: "plugin",
+      content: "<recommended_plugins>weather</recommended_plugins>",
+    });
+    expect(systemInstructions([plugin])).toEqual([]);
+  });
 });

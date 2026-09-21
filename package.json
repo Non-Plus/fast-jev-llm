@@ -8,9 +8,16 @@
   "packageManager": "pnpm@10.14.0",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm --filter @fast-jev/core test",
+    "lint": "pnpm typecheck",
+    "typecheck": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/provider-jev build && pnpm --filter @fast-jev/adapter-codex build && pnpm --filter @fast-jev/providers build",
+    "test": "pnpm --filter @fast-jev/core test && pnpm --filter @fast-jev/adapter-codex test && pnpm --filter @fast-jev/provider-jev test",
+    "bench:real-session": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/adapter-codex build && pnpm --filter @fast-jev/provider-jev build && pnpm --filter @fast-jev/benchmarks start:real-session",
+    "bench:semantic": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/adapter-codex build && pnpm --filter @fast-jev/provider-jev build && pnpm --filter @fast-jev/benchmarks start:semantic",
     "compact": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/cli start",
-    "bench": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/benchmarks start"
+    "ctx": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/adapter-codex build && pnpm --filter @fast-jev/cli start --",
+    "bench": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/benchmarks start",
+    "bench:codex": "pnpm typecheck && pnpm --filter @fast-jev/benchmarks start:codex",
+    "bench:compression": "pnpm --filter @fast-jev/core build && pnpm --filter @fast-jev/benchmarks start:compression"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

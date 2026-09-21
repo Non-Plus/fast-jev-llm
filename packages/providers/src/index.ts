@@ -1,15 +1,26 @@
-import type { ContextDecision, SemanticProvider } from "@fast-jev/core";
+import type {
+  SemanticClassificationRequest,
+  SemanticClassificationResult,
+  SemanticProvider,
+} from "@fast-jev/core";
 
 /**
- * Placeholder provider. Real Jev / OpenAI / Anthropic / local adapters
- * should implement SemanticProvider and live in this package.
+ * Placeholder provider used in tests. Real adapters live beside this file
+ * (`jev/` for TypeSafe Jev).
  */
 export class NoopSemanticProvider implements SemanticProvider {
   readonly name = "noop";
+  readonly remote = false;
 
-  async classify(): Promise<readonly ContextDecision[]> {
-    return [];
+  async classify(_request: SemanticClassificationRequest): Promise<SemanticClassificationResult> {
+    void _request;
+    return { provider: this.name, decisions: [] };
   }
 }
 
 export type { SemanticProvider } from "@fast-jev/core";
+export {
+  JevSemanticProvider,
+  jevProviderFromEnv,
+  type JevSemanticProviderOptions,
+} from "@fast-jev/provider-jev";

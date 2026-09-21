@@ -1,0 +1,4 @@
+{"timestamp":"2026-09-21T02:00:00.000Z","type":"session_meta","payload":{"id":"interrupted","session_id":"interrupted","cwd":"/Users/user/project"}}
+{"timestamp":"2026-09-21T02:00:01.000Z","type":"response_item","payload":{"type":"message","id":"msg_u","role":"user","content":[{"type":"input_text","text":"Run git status then stop."}]}}
+{"timestamp":"2026-09-21T02:00:02.000Z","type":"response_item","payload":{"type":"custom_tool_call","id":"ctc_open","status":"in_progress","call_id":"call_open","name":"exec","input":"const r = await tools.exec_command({cmd:\"git status\",\"workdir\":\"/Users/user/project\"});text(r.output);"}}
+{"timestamp":"2026-09-21T02:00:03.000Z","type":"response_item","payload":{"type":"message","id":"msg_a","role":"assistant","content":[{"type":"output_text","text":"I started git status but the turn was interrupted."}]}}

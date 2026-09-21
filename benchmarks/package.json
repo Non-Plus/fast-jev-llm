@@ -4,10 +4,16 @@
   "type": "module",
   "scripts": {
     "build": "node -e \"process.exit(0)\"",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "start:codex": "tsx src/codex-shadow.ts",
+    "start:compression": "tsx src/compression-quality.ts",
+    "start:real-session": "tsx src/real-session-task4.ts",
+    "start:semantic": "tsx src/real-session-task5.ts"
   },
   "dependencies": {
-    "@fast-jev/core": "workspace:*"
+    "@fast-jev/adapter-codex": "workspace:*",
+    "@fast-jev/core": "workspace:*",
+    "@fast-jev/provider-jev": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

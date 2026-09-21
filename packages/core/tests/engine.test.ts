@@ -121,4 +121,109 @@ describe("mergeDecisions", () => {
     );
     expect(merged.find((entry) => entry.itemId === "a")?.action).toBe("PROTECT");
   });
+
+  it("compresses protected tool output when compression is allowed", () => {
+    const tool = makeItem({
+      id: "a",
+      kind: "tool_pair",
+      content: "build log",
+      tokenCount: 20_000,
+    });
+    const protect = makeDecision({
+      action: "PROTECT",
+      itemId: "a",
+      rule: "recent-items",
+      reason: "recent tool result",
+      reasonCode: "RECENT_CONTEXT",
+      authority: "heuristic",
+      retention: "protected",
+      compression: "allowed",
+    });
+    const compress = makeDecision({
+      action: "COMPRESS",
+      itemId: "a",
+      rule: "compress-large-output",
+      reason: "large build",
+      reasonCode: "LARGE_BUILD_OUTPUT",
+      authority: "heuristic",
+      retention: "normal",
+      compression: "allowed",
+    });
+    const merged = mergeDecisions([tool], [[protect], [compress]]);
+    expect(merged[0]).toEqual(
+      expect.objectContaining({
+        action: "COMPRESS",
+        retention: "protected",
+        compression: "allowed",
+        reasonCode: "LARGE_BUILD_OUTPUT",
+      }),
+    );
+  });
+
+  it("keeps protected user text verbatim even when a compress rule fires", () => {
+    const protect = makeDecision({
+      action: "PROTECT",
+      itemId: "a",
+      rule: "explicit-user-constraint",
+      reason: "constraint",
+      reasonCode: "USER_CONSTRAINT",
+      authority: "safety",
+      retention: "protected",
+      compression: "forbidden",
+    });
+    const compress = makeDecision({
+      action: "COMPRESS",
+      itemId: "a",
+      rule: "compress-large-output",
+      reason: "large",
+      reasonCode: "LARGE_OUTPUT",
+      authority: "heuristic",
+    });
+    const merged = mergeDecisions(items, [[protect], [compress]]);
+    expect(merged.find((entry) => entry.itemId === "a")).toEqual(
+      expect.objectContaining({
+        action: "PROTECT",
+        retention: "protected",
+        compression: "forbidden",
+        reasonCode: "USER_CONSTRAINT",
+      }),
+    );
+  });
+
+  it("converts DROP of a protected compressible item into COMPRESS when available", () => {
+    const tool = makeItem({
+      id: "a",
+      kind: "tool_pair",
+      content: "output",
+    });
+    const protect = makeDecision({
+      action: "PROTECT",
+      itemId: "a",
+      rule: "recent-items",
+      reason: "recent",
+      reasonCode: "RECENT_CONTEXT",
+      authority: "heuristic",
+      retention: "protected",
+      compression: "allowed",
+    });
+    const drop = makeDecision({
+      action: "DROP",
+      itemId: "a",
+      rule: "repeated-command-output",
+      reason: "duplicate",
+      reasonCode: "DUPLICATE_OUTPUT",
+      authority: "heuristic",
+    });
+    const compress = makeDecision({
+      action: "COMPRESS",
+      itemId: "a",
+      rule: "compress-large-output",
+      reason: "large",
+      reasonCode: "LARGE_OUTPUT",
+      authority: "heuristic",
+    });
+    const merged = mergeDecisions([tool], [[protect], [drop, compress]]);
+    expect(merged[0]?.action).toBe("COMPRESS");
+    expect(merged[0]?.retention).toBe("protected");
+  });
 });
