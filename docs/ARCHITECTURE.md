@@ -13,12 +13,16 @@ are not implemented here.
 
 - Canonical, provider-neutral transcript types
 - Immutable input: the original transcript is never mutated
-- Every item receives a decision: `PROTECT` | `KEEP` | `COMPRESS` | `DROP`
-- Every decision records `action`, `reason`, `itemId`, and `rule`
-- Deterministic pruning plus a protected-context veto
+- Every item receives a winning decision: `PROTECT` | `KEEP` | `COMPRESS` | `DROP`
+- A full **audit trail** of every rule evaluation, including losers
+- Typed `reasonCode` values for programmatic consumers; human `reason`
+  text is display-only
+- Authority-ordered merge: safety > structural > heuristic > semantic
+- Deterministic pruning plus a protected-context veto (`PROTECT` is sticky)
+- Pluggable `TokenEstimator` (default: approximate chars/4)
+- File-state-aware read pruning, snapshot command pruning, structured compression
 - A compaction pipeline that can later call a `SemanticProvider` without
   changing its shape
-- Approximate token counts and compaction statistics
 
 ## Non-goals (this slice)
 
@@ -27,6 +31,7 @@ are not implemented here.
 - HTTP servers, UI, or databases
 - Local archival and project memory
 - Streaming / incremental session mutation APIs
+- Graph databases or graph algorithms for relations
 
 ## Package layout
 
@@ -34,63 +39,130 @@ are not implemented here.
 packages/core         Canonical types + compaction engine
 packages/providers    Future SemanticProvider implementations (stub only)
 cli                   Compact a JSON transcript and print statistics
-benchmarks            Timing harness over the fixture transcript
+benchmarks            Timing harness + stats over the fixture transcript
 fixtures              Shared example sessions
 ```
 
-`packages/providers` exists so Jev / OpenAI / Anthropic / local models
-can be added later without moving the pipeline. It currently exports a
-no-op provider.
-
 ## Canonical model
-
-The engine does not speak "OpenAI messages" or "Cursor turns". Adapters
-(later) will map vendor payloads into these types.
 
 ```
 Transcript
   └── ContextMessage[]          original, treated as frozen
-        ├── ToolCall[]          optional, on assistant messages
-        └── toolCallId          on tool-result messages
 
-ContextItem                     derived work unit (new objects)
-  ├── message                   user / assistant / system text
-  ├── tool_pair                 matched ToolCall + ToolResult
-  ├── unpaired_tool_call
-  └── unpaired_tool_result
-
-ContextDecision                 one winning decision per item
-SessionState                    derived snapshot of items + token totals
-PruningRule                     pure function over items
-SemanticProvider                optional port (classify / compress)
-CompactionResult                decisions + compacted items + stats
+ContextItem                     derived work unit
+ContextDecision                 one rule evaluation (winner or loser)
+ItemDecisionRecord              winning + all evaluations for an item
+ContextRelation                 optional lightweight edge
+SessionState                    items + token totals + TaskState + relations
+TokenEstimator                  estimate(text): number
+CompressionStrategy             head_tail | error_extract | test_summary
+SemanticProvider                optional port
+CompactionResult                compacted items + audit + stats
 ```
 
-### Why `ContextItem` is separate from `ContextMessage`
+### Decisions
 
-Pruning wants a **tool-call/result pair** as a single unit ("this file
-read of `src/index.ts`"). Vendor transcripts split that across two
-messages. Normalization produces `ContextItem`s; the original messages
-stay untouched and are referenced by `messageIds`.
+Every decision contains:
 
-### Tool kinds
+| Field        | Role                                              |
+|--------------|---------------------------------------------------|
+| `itemId`     | Source item                                       |
+| `action`     | `PROTECT` / `KEEP` / `COMPRESS` / `DROP`          |
+| `rule`       | Rule name                                         |
+| `reasonCode` | Stable programmatic code                          |
+| `reason`     | Human-readable; never used for control flow       |
+| `authority`  | `safety` \| `structural` \| `heuristic` \| `semantic` |
 
-During normalization, each tool pair is classified heuristically from
-tool name + arguments (no LLM):
+`CompactionResult` exposes:
 
-| `ToolKind`         | Examples                                      |
-|--------------------|-----------------------------------------------|
-| `file_read`        | Read, cat, get_file_contents                  |
-| `file_write`       | Write, apply_patch (not pruned in this slice) |
-| `git_status`       | `git status`                                  |
-| `git_diff`         | `git diff`                                    |
-| `directory_list`   | ls, Glob, list_dir                            |
-| `test_run`         | vitest, jest, pytest, `npm test`              |
-| `command`          | generic shell                                 |
-| `other`            | everything else                               |
+- `decisions` — winning decision per item (same length as `items`)
+- `evaluations` — every rule emission, including losing ones
+- `decisionRecords` — `{ itemId, winning, evaluations }` per item
 
-Classification is conservative: unknown tools become `other`/`command`
-and are only affected by the repeated-command rule.
+### Reason codes
+
+`SUPERSEDED_FILE_READ`, `WRITE_INVALIDATED_READ`, `SUPERSEDED_GIT_STATUS`,
+`SUPERSEDED_GIT_DIFF`, `OLD_DIRECTORY_LISTING`, `SUPERSEDED_TEST_RUN`,
+`TEST_FAILURE_RESOLVED`, `DUPLICATE_OUTPUT`, `LARGE_OUTPUT`,
+`RECENT_CONTEXT`, `USER_CONSTRAINT`, `SYSTEM_INSTRUCTION`,
+`CURRENT_TASK`, `UNRESOLVED_ERROR`, plus `DEFAULT_KEEP` and
+`SEMANTIC_CLASSIFICATION`.
+
+### Authority merge
+
+1. Synthesize `KEEP` / `DEFAULT_KEEP` / `heuristic` when nothing matches.
+2. `PROTECT` is sticky from any authority and cannot be overridden.
+3. Otherwise higher authority wins: safety > structural > heuristic > semantic.
+4. Semantic may compete with heuristic **only** when the item is eligible
+   (not already `PROTECT`). It cannot override safety or structural
+   decisions, and cannot un-protect.
+5. Equal authority uses action rank: `DROP` > `COMPRESS` > `KEEP`.
+   The first equal-rank winner is kept.
+
+### File state
+
+Normalized tool metadata for file operations includes:
+
+- `normalizedPath`
+- `contentHash` when content is available
+- `operationIndex`
+- `writeBetweenReads`
+
+The superseded-file-read rule does **not** treat every later read of a
+path as a duplicate snapshot:
+
+- Read A, Read A (no write) → earlier `SUPERSEDED_FILE_READ`
+- Read A, Write A, Read A → earlier `WRITE_INVALIDATED_READ`
+
+### Relations
+
+Optional `ContextRelation` edges (`supersedes`, `invalidates`,
+`validates`, `depends_on`, `caused_by`) are a flat list. No graph store
+or algorithms. Normalization/rules emit obvious ones:
+
+- later file read **supersedes** earlier read
+- file write **invalidates** previous read
+- successful test **validates** the latest preceding write
+
+### Failures
+
+When a tool result is a failure, `failureKind` is attached
+deterministically: `test`, `build`, `compile`, `lint`, `runtime`,
+`network`, `deployment`, or `unknown`. No AI classification.
+
+### Command pruning
+
+Generic commands are dropped only when a later execution of the same
+command produced **identical normalized output** (`DUPLICATE_OUTPUT`).
+Identical command strings with different outputs are kept.
+
+Snapshot categories (git status, git diff, directory listings, file
+reads/tests) have their own structural rules and are not inferred from
+command-string equality.
+
+### Compression
+
+`CompressionStrategy` produces `{ strategy, originalTokens, retainedTokens, content }`:
+
+| Strategy        | When                                              |
+|-----------------|---------------------------------------------------|
+| `error_extract` | Build/compiler failures or recognizable diagnostics |
+| `test_summary`  | Test-run output                                   |
+| `head_tail`     | Fallback                                          |
+
+No LLM compression. A `SemanticProvider.compress` hook still overrides
+when a caller supplies one.
+
+### Task state
+
+`SessionState.task` is filled conservatively:
+
+- `rootTask` — first substantive user message
+- `currentTask` — last substantive user message (`yes` / `continue` are acks)
+- `constraints` — explicit constraint language or `metadata.constraint`
+- `acceptanceCriteria` — `Acceptance criteria:` / checklist lines / metadata
+
+No sophisticated task inference.
 
 ## Data flow
 
@@ -98,187 +170,73 @@ and are only affected by the repeated-command rule.
 Transcript (frozen)
         │
         ▼
-  normalize()          pair tools, classify kind, estimate tokens
+  normalize()     pair tools, classify, hash file ops, estimate tokens
         │
         ▼
-  SessionState         immutable ContextItem[]
+  SessionState    items + TaskState + relations
         │
-        ├─► protect rules      may only emit PROTECT
-        ├─► prune rules        may emit DROP or COMPRESS
-        └─► SemanticProvider   optional; cannot override PROTECT
+        ├─► protect rules      PROTECT (safety + heuristic recency)
+        ├─► prune rules        DROP / COMPRESS
+        └─► SemanticProvider   optional; eligible non-PROTECT items only
                 │
                 ▼
-        merge decisions        PROTECT > DROP > COMPRESS > KEEP
+        merge (authority + sticky PROTECT)
                 │
                 ▼
-        materialize()          copy KEEP/PROTECT; stub COMPRESS; omit DROP
+        materialize()          KEEP/PROTECT copy; COMPRESS stub; omit DROP
                 │
                 ▼
-  CompactionResult     compacted items + audit decisions + stats
+  CompactionResult     winning + evaluations + stats by reasonCode
 ```
-
-The pipeline is a single async function:
 
 ```ts
 compact(transcript: Transcript, options?: CompactOptions): Promise<CompactionResult>
 ```
 
-It is async only so a future `SemanticProvider` can be awaited. The
-current path is synchronous work inside that function.
-
-## Decision merge
-
-1. Every item starts as `KEEP` (`rule: "default"`).
-2. Protect rules run first. `PROTECT` is sticky.
-3. Prune rules run next. They may not change a `PROTECT` item.
-4. If several prune rules fire, the **stronger** action wins:
-   `DROP` > `COMPRESS` > `KEEP`.
-5. An optional semantic provider may emit decisions for non-protected
-   items. Same merge order. It cannot un-protect or revive a `DROP`
-   unless we later add an explicit override policy (we will not).
-6. Exactly one **winning** decision per item is returned. Rules that
-   lose the merge are not included; this keeps the result small and
-   makes `rule` unambiguously "the rule responsible".
-
-## Deterministic prune rules
-
-Each rule is a pure function:
-
-```ts
-(items: readonly ContextItem[], config: EngineConfig) => ContextDecision[]
-```
-
-Rules inspect the full list and emit decisions for **older** items,
-keeping the latest representative.
-
-| Rule                         | What it drops                                      |
-|------------------------------|----------------------------------------------------|
-| `superseded-file-read`       | Earlier reads of the same path                     |
-| `superseded-git-status`      | Earlier `git status` outputs                       |
-| `superseded-git-diff`        | Earlier `git diff` outputs                         |
-| `old-directory-listing`      | Earlier listings of the same directory/glob        |
-| `superseded-test-run`        | Earlier runs of the same test target               |
-| `successful-test-supersedes-failures` | Failed runs of a target once a later run passed |
-| `repeated-command-output`    | Earlier runs of the same command string            |
-| `compress-large-output`      | Latest tool output still over a token threshold → `COMPRESS` |
-
-`compress-large-output` is the only rule that emits `COMPRESS` in this
-slice. Compression itself is deterministic truncation (head + tail +
-byte/token metadata), not a model summary.
-
-## Protected-context rules
-
-Protect rules only emit `PROTECT`. They are the veto against pruning.
-
-| Rule                      | What it protects                                      |
-|---------------------------|-------------------------------------------------------|
-| `system-instructions`     | `system` messages (standing instructions)             |
-| `explicit-user-constraint`| User text that states constraints, or `metadata.constraint` |
-| `recent-items`            | The last *N* items (default 8)                        |
-| `unresolved-error`        | Latest error/failing test that has not been followed by success for that target |
-| `current-task`            | The most recent substantive user message              |
-
-`recent-items` uses item order, not wall clock. Transcripts may not have
-timestamps.
-
 ## Token estimation
 
-Approximate, deterministic, no tokenizer dependency:
-
-```
-tokens ≈ ceil(characterLength / charsPerToken)
-```
-
-Default `charsPerToken = 4`. Good enough for budget math and statistics;
-not a billing figure. A later adapter may inject a real tokenizer
-through the same `estimateTokens(text, config)` function.
-
-## Semantic provider port
-
 ```ts
-interface SemanticProvider {
-  readonly name: string;
-  classify?(
-    items: readonly ContextItem[],
-    session: SessionState,
-  ): Promise<readonly ContextDecision[]>;
-  compress?(
-    item: ContextItem,
-  ): Promise<string>;
+interface TokenEstimator {
+  estimate(text: string): number;
+}
+
+class ApproximateTokenEstimator implements TokenEstimator {
+  // tokens ≈ ceil(characterLength / charsPerToken)  default 4
 }
 ```
 
-The pipeline:
-
-1. Always runs protect + prune.
-2. If `options.semanticProvider` is set, calls `classify` on
-   non-protected items and merges.
-3. For `COMPRESS` items, uses `provider.compress` when present,
-   otherwise the deterministic stub.
-
-No provider is required. Adding Jev later is a new class in
-`packages/providers` plus passing it into `compact()`. The pipeline file
-does not need to change if the port remains stable.
+No external tokenizer. Callers may inject another `TokenEstimator`
+through `EngineConfig.tokenEstimator`. `estimateTokens()` remains as a
+convenience wrapper.
 
 ## Statistics
 
-`CompactionStats` reports:
+Reported fields:
 
-- original / compact token counts and item counts
-- tokens kept, protected, compressed, dropped
-- per-rule counts and tokens (based on **winning** decisions)
-
-The original transcript is not copied into the result. Callers already
-hold it.
+- original / protected / kept / compressed / dropped tokens
+- reduction percentage
+- per-rule counts
+- token **reduction** grouped by `reasonCode`
 
 ## Configuration
-
-Kept small on purpose:
 
 ```ts
 interface EngineConfig {
   recentItemCount: number;      // default 8
   largeOutputTokens: number;    // default 2000
   charsPerToken: number;        // default 4
+  tokenEstimator?: TokenEstimator;
 }
 ```
 
-No plugin registry, no middleware stack, no per-rule YAML.
-
 ## Immutability
 
-- `compact()` deep-freezes a copy of the input (or works only on
-  derived objects).
-- Tests assert that the caller's `Transcript` is reference-equal in
-  content after compaction.
-- `ContextItem`s in the result are new objects. `COMPRESS` produces a
-  new item with shorter `content` and an updated `tokenCount`.
+`compact()` never mutates the caller's `Transcript`. Result objects are
+deep-frozen. `COMPRESS` yields a new item with stub content and a
+`metadata.compression` payload.
 
 ## CLI and benchmarks
 
-- `cli` reads a JSON `Transcript`, calls `compact()`, prints stats.
-- `benchmarks` runs `compact()` in a loop over the fixture (optionally
-  scaled) and prints ms / tokens dropped.
-
-Neither talks to a network.
-
-## Design review (simplifications applied)
-
-Before implementation, the following were cut:
-
-| Rejected | Why |
-|----------|-----|
-| Plugin registry / DI container | An array of rule functions is enough |
-| Separate prune/protect packages | Two modules in `core` |
-| Event emitters, middleware hooks | Pipeline is five functions |
-| `compactSync` plus `compact` | One async entry point |
-| Immutable.js / structured clone of the whole result | Derived items + freeze |
-| Real tokenizers | `chars/4` until a provider needs more |
-| Archival, memory, adapters | Explicit non-goals |
-| Audit log of losing rules | One winning decision per item |
-| Timestamp-based recency | Item order only |
-| Class hierarchy for rules | Plain functions with a `name` |
-
-The core surface is: **types**, **normalize**, **rules**, **compact**.
-Everything else is a future package behind `SemanticProvider` or an
-adapter that produces a `Transcript`.
+Both print original, protected, kept, compressed, dropped tokens,
+reduction percent, and reduction grouped by `reasonCode`. Benchmarks
+also report average `compact()` latency.

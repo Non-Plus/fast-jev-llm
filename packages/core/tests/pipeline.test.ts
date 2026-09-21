@@ -42,7 +42,11 @@ describe("compact pipeline", () => {
       expect(decision.reason.length).toBeGreaterThan(0);
       expect(decision.itemId.length).toBeGreaterThan(0);
       expect(decision.rule.length).toBeGreaterThan(0);
+      expect(decision.reasonCode.length).toBeGreaterThan(0);
+      expect(["safety", "structural", "heuristic", "semantic"]).toContain(decision.authority);
     }
+    expect(result.decisionRecords).toHaveLength(result.items.length);
+    expect(result.evaluations.length).toBeGreaterThan(0);
   });
 
   it("omits dropped items from compacted output and stubs compressed ones", async () => {
@@ -108,6 +112,8 @@ describe("compact pipeline", () => {
           itemId: item.id,
           rule: "semantic-drop-all",
           reason: "provider asked to drop",
+          reasonCode: "SEMANTIC_CLASSIFICATION" as const,
+          authority: "semantic" as const,
         }));
       },
     };

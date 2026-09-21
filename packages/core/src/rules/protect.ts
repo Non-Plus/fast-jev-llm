@@ -1,4 +1,6 @@
 import { failureKey, isToolFailure, isToolSuccess } from "../classify.js";
+import { makeDecision } from "../reasons.js";
+import { isAck, isConstraintMessage } from "../signals.js";
 import type {
   ContextDecision,
   ContextItem,
@@ -6,41 +8,35 @@ import type {
   PruningRule,
 } from "../types.js";
 
-const CONSTRAINT_RE =
-  /\b(always|never|must not|must\b|do not|don't|dont\b|constraint|under no circumstances|requirement:|important:)\b/i;
-
-const ACK_RE =
-  /^(ok(ay)?|k|thanks|thank you|yes|yep|yeah|continue|go ahead|please continue|got it|cool|sure|sounds good)[.!\s]*$/i;
-
 function protect(
   item: ContextItem,
   rule: string,
+  reasonCode: ContextDecision["reasonCode"],
   reason: string,
+  authority: ContextDecision["authority"],
 ): ContextDecision {
-  return {
+  return makeDecision({
     action: "PROTECT",
     itemId: item.id,
     rule,
+    reasonCode,
     reason,
-  };
+    authority,
+  });
 }
 
 export function systemInstructions(items: readonly ContextItem[]): ContextDecision[] {
   return items
     .filter((item) => item.kind === "message" && item.role === "system")
     .map((item) =>
-      protect(item, "system-instructions", "System messages are standing instructions"),
+      protect(
+        item,
+        "system-instructions",
+        "SYSTEM_INSTRUCTION",
+        "System messages are standing instructions",
+        "safety",
+      ),
     );
-}
-
-function isConstraintMessage(item: ContextItem): boolean {
-  if (item.kind !== "message" || item.role !== "user") {
-    return false;
-  }
-  if (item.metadata?.["constraint"] === true || item.metadata?.["protect"] === true) {
-    return true;
-  }
-  return CONSTRAINT_RE.test(item.content);
 }
 
 export function explicitUserConstraints(items: readonly ContextItem[]): ContextDecision[] {
@@ -50,13 +46,11 @@ export function explicitUserConstraints(items: readonly ContextItem[]): ContextD
       protect(
         item,
         "explicit-user-constraint",
+        "USER_CONSTRAINT",
         "User message states an explicit constraint or standing instruction",
+        "safety",
       ),
     );
-}
-
-function isAck(content: string): boolean {
-  return ACK_RE.test(content.trim());
 }
 
 export function currentTask(items: readonly ContextItem[]): ContextDecision[] {
@@ -73,7 +67,9 @@ export function currentTask(items: readonly ContextItem[]): ContextDecision[] {
     protect(
       substantive,
       "current-task",
+      "CURRENT_TASK",
       "Most recent substantive user message is the current task",
+      "safety",
     ),
   ];
 }
@@ -110,7 +106,9 @@ export function unresolvedErrors(items: readonly ContextItem[]): ContextDecision
       protect(
         failure.item,
         "unresolved-error",
+        "UNRESOLVED_ERROR",
         `Current unresolved error for "${key}"`,
+        "safety",
       ),
     );
   }
@@ -129,7 +127,9 @@ export function recentItems(
     protect(
       item,
       "recent-items",
+      "RECENT_CONTEXT",
       `Item is within the last ${config.recentItemCount} items (offset ${offset} from window start)`,
+      "heuristic",
     ),
   );
 }

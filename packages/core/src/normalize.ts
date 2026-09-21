@@ -1,5 +1,8 @@
-import { classifyTool, parseArguments } from "./classify.js";
-import { estimateTokens } from "./tokens.js";
+import { classifyFailureKind, classifyTool, parseArguments } from "./classify.js";
+import { annotateFileState, normalizePath } from "./file-state.js";
+import { collectRelations } from "./relations.js";
+import { inferTaskState } from "./task.js";
+import { resolveEstimator } from "./tokens.js";
 import type {
   ContentPart,
   ContextItem,
@@ -66,6 +69,7 @@ function buildToolMeta(call: ToolCall, result?: ToolResult): ToolMeta {
   };
   if (classified.path !== undefined) {
     meta.path = classified.path;
+    meta.normalizedPath = normalizePath(classified.path);
   }
   if (classified.command !== undefined) {
     meta.command = classified.command;
@@ -82,6 +86,16 @@ function buildToolMeta(call: ToolCall, result?: ToolResult): ToolMeta {
   if (result?.isError !== undefined) {
     meta.isError = result.isError;
   }
+  const failureKind = classifyFailureKind({
+    kind: meta.kind,
+    command: meta.command,
+    result: meta.result,
+    ...(meta.isError !== undefined ? { isError: meta.isError } : {}),
+    ...(meta.exitCode !== undefined ? { exitCode: meta.exitCode } : {}),
+  });
+  if (failureKind !== undefined) {
+    meta.failureKind = failureKind;
+  }
   return meta;
 }
 
@@ -93,14 +107,15 @@ interface PendingCall {
 
 export function normalizeTranscript(
   transcript: Transcript,
-  config: Pick<EngineConfig, "charsPerToken">,
+  config: Pick<EngineConfig, "charsPerToken" | "tokenEstimator">,
 ): ContextItem[] {
+  const estimator = resolveEstimator(config);
   const items: ContextItem[] = [];
   const pending = new Map<string, PendingCall>();
   let seq = 0;
 
   const push = (item: Omit<ContextItem, "id" | "tokenCount"> & { tokenCount?: number }): void => {
-    const tokenCount = item.tokenCount ?? estimateTokens(item.content, config.charsPerToken);
+    const tokenCount = item.tokenCount ?? estimator.estimate(item.content);
     items.push({
       ...item,
       id: nextId(seq),
@@ -150,6 +165,12 @@ export function normalizeTranscript(
           message.createdAt ?? matched.createdAt,
         );
       } else {
+        const failureKind = classifyFailureKind({
+          kind: "other",
+          result: result.content,
+          ...(result.isError !== undefined ? { isError: result.isError } : {}),
+          ...(result.exitCode !== undefined ? { exitCode: result.exitCode } : {}),
+        });
         push({
           kind: "unpaired_tool_result",
           role: "tool",
@@ -163,6 +184,7 @@ export function normalizeTranscript(
             result: result.content,
             ...(result.isError !== undefined ? { isError: result.isError } : {}),
             ...(result.exitCode !== undefined ? { exitCode: result.exitCode } : {}),
+            ...(failureKind !== undefined ? { failureKind } : {}),
           },
           ...(message.createdAt !== undefined ? { createdAt: message.createdAt } : {}),
         });
@@ -216,12 +238,13 @@ export function normalizeTranscript(
     });
   }
 
+  annotateFileState(items);
   return items;
 }
 
 export function toSessionState(
   transcript: Transcript,
-  config: Pick<EngineConfig, "charsPerToken">,
+  config: Pick<EngineConfig, "charsPerToken" | "tokenEstimator">,
 ): SessionState {
   const items = normalizeTranscript(transcript, config);
   const tokenCount = items.reduce((sum, item) => sum + item.tokenCount, 0);
@@ -234,5 +257,7 @@ export function toSessionState(
     tokenCount,
     createdAt: timestamps[0] ?? "1970-01-01T00:00:00.000Z",
     updatedAt: timestamps[timestamps.length - 1] ?? "1970-01-01T00:00:00.000Z",
+    task: inferTaskState(items),
+    relations: collectRelations(items),
   };
 }

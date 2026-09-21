@@ -23,6 +23,14 @@ describe("coding session fixture", () => {
     expect(byRule["old-directory-listing"]?.count).toBeGreaterThan(0);
     expect(byRule["repeated-command-output"]?.count).toBeGreaterThan(0);
     expect(byRule["compress-large-output"]?.count).toBeGreaterThan(0);
+    expect(result.stats.byReasonCode["SUPERSEDED_FILE_READ"]?.count).toBeGreaterThan(0);
+    expect(result.stats.byReasonCode["WRITE_INVALIDATED_READ"]?.count).toBeGreaterThan(0);
+    expect(result.stats.byReasonCode["DUPLICATE_OUTPUT"]?.count).toBeGreaterThan(0);
+    expect(result.evaluations.length).toBeGreaterThanOrEqual(
+      result.decisions.filter((decision) => decision.rule !== "default").length,
+    );
+    expect(result.session.task.constraints.length).toBeGreaterThan(0);
+    expect(result.relations.length).toBeGreaterThan(0);
     expect(
       (byRule["successful-test-supersedes-failures"]?.count ?? 0) +
         (byRule["superseded-test-run"]?.count ?? 0),
@@ -40,5 +48,7 @@ describe("coding session fixture", () => {
     const summary = formatStats(result.stats, result.sessionId);
     expect(summary).toContain("coding-session-rate-limit");
     expect(summary).toContain("By winning rule:");
+    expect(summary).toContain("By reason code");
+    expect(summary).toContain("Reduction:");
   });
 });

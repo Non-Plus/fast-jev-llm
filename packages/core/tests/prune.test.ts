@@ -63,13 +63,29 @@ function testRun(
   );
 }
 
-function command(id: string, cmd: string): ReturnType<typeof makeToolItem> {
+function command(id: string, cmd: string, result = ""): ReturnType<typeof makeToolItem> {
+  return makeToolItem(
+    id,
+    {
+      name: "Shell",
+      kind: "command",
+      callId: id,
+      args: { command: cmd },
+      command: cmd,
+      result,
+    },
+    result,
+  );
+}
+
+function fileWrite(id: string, path: string): ReturnType<typeof makeToolItem> {
   return makeToolItem(id, {
-    name: "Shell",
-    kind: "command",
+    name: "Write",
+    kind: "file_write",
     callId: id,
-    args: { command: cmd },
-    command: cmd,
+    args: { path, contents: "new" },
+    path,
+    normalizedPath: path,
   });
 }
 
@@ -145,13 +161,48 @@ describe("deterministic prune rules", () => {
     expect(decisions[0]?.rule).toBe("successful-test-supersedes-failures");
   });
 
-  it("drops earlier repeated generic commands", () => {
+  it("drops earlier repeated generic commands only when output is identical", () => {
     const decisions = repeatedCommandOutputs([
-      command("e1", "echo hello"),
+      command("e1", "echo hello", "hello"),
       fileRead("r1", "a.ts"),
-      command("e2", "echo hello"),
+      command("e2", "echo hello", "hello"),
     ]);
     expect(decisions.map((decision) => decision.itemId)).toEqual(["e1"]);
+    expect(decisions[0]?.reasonCode).toBe("DUPLICATE_OUTPUT");
+  });
+
+  it("does not drop the same command when outputs differ", () => {
+    const decisions = repeatedCommandOutputs([
+      command("e1", "echo hello", "hello"),
+      command("e2", "echo hello", "hello world"),
+    ]);
+    expect(decisions).toEqual([]);
+  });
+
+  it("does not treat reads of the same path as equivalent when a write lands between them", () => {
+    const duplicate = supersededFileReads([
+      fileRead("r1", "src/a.ts"),
+      fileRead("r2", "src/a.ts"),
+    ]);
+    expect(duplicate).toEqual([
+      expect.objectContaining({
+        itemId: "r1",
+        reasonCode: "SUPERSEDED_FILE_READ",
+      }),
+    ]);
+
+    const withWrite = supersededFileReads([
+      fileRead("r1", "src/a.ts"),
+      fileWrite("w1", "src/a.ts"),
+      fileRead("r2", "src/a.ts"),
+    ]);
+    expect(withWrite).toEqual([
+      expect.objectContaining({
+        itemId: "r1",
+        reasonCode: "WRITE_INVALIDATED_READ",
+        action: "DROP",
+      }),
+    ]);
   });
 
   it("emits COMPRESS for oversized tool outputs only", () => {
@@ -194,6 +245,8 @@ describe("deterministic prune rules", () => {
       expect(decision.reason.length).toBeGreaterThan(0);
       expect(decision.itemId).toBe("a");
       expect(decision.rule).toBe("superseded-file-read");
+      expect(decision.reasonCode).toBe("SUPERSEDED_FILE_READ");
+      expect(decision.authority).toBe("structural");
     }
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mergeDecisions } from "../src/engine.js";
+import { buildDecisionAudit, mergeDecisions } from "../src/engine.js";
+import { makeDecision } from "../src/reasons.js";
 import { makeItem } from "./helpers.js";
 import type { ContextDecision } from "../src/types.js";
 
@@ -14,7 +15,36 @@ function decision(
   action: ContextDecision["action"],
   rule: string,
 ): ContextDecision {
-  return { action, itemId, rule, reason: `${rule} on ${itemId}` };
+  const authority: ContextDecision["authority"] =
+    rule === "semantic-drop-all"
+      ? "semantic"
+      : rule === "recent-items" || rule === "compress-large-output"
+        ? "heuristic"
+        : rule === "system-instructions" || rule === "explicit-user-constraint"
+          ? "safety"
+          : "structural";
+  const reasonCode: ContextDecision["reasonCode"] =
+    rule === "recent-items"
+      ? "RECENT_CONTEXT"
+      : rule === "compress-large-output"
+        ? "LARGE_OUTPUT"
+        : rule === "superseded-file-read"
+          ? "SUPERSEDED_FILE_READ"
+          : rule === "successful-test-supersedes-failures"
+            ? "TEST_FAILURE_RESOLVED"
+            : rule === "superseded-test-run"
+              ? "SUPERSEDED_TEST_RUN"
+              : rule === "semantic-drop-all"
+                ? "SEMANTIC_CLASSIFICATION"
+                : "DEFAULT_KEEP";
+  return makeDecision({
+    action,
+    itemId,
+    rule,
+    reason: `${rule} on ${itemId}`,
+    reasonCode,
+    authority,
+  });
 }
 
 describe("mergeDecisions", () => {
@@ -56,5 +86,39 @@ describe("mergeDecisions", () => {
     expect(merged.find((entry) => entry.itemId === "a")?.rule).toBe(
       "successful-test-supersedes-failures",
     );
+  });
+
+  it("keeps losing evaluations in the audit trail", () => {
+    const audit = buildDecisionAudit(items, [
+      [decision("a", "PROTECT", "recent-items")],
+      [decision("a", "DROP", "superseded-file-read")],
+    ]);
+    const record = audit.records.find((entry) => entry.itemId === "a");
+    expect(record?.winning.action).toBe("PROTECT");
+    expect(record?.evaluations.map((entry) => entry.rule)).toEqual([
+      "recent-items",
+      "superseded-file-read",
+    ]);
+    expect(audit.evaluations).toHaveLength(2);
+  });
+
+  it("lets semantic override heuristic only when the item is eligible", () => {
+    const semanticDrop = decision("a", "DROP", "semantic-drop-all");
+    const withoutEligibility = mergeDecisions(items, [[semanticDrop]]);
+    expect(withoutEligibility.find((entry) => entry.itemId === "a")?.action).toBe("KEEP");
+
+    const withEligibility = mergeDecisions(items, [[semanticDrop]], {
+      semanticEligibleIds: new Set(["a"]),
+    });
+    expect(withEligibility.find((entry) => entry.itemId === "a")?.action).toBe("DROP");
+  });
+
+  it("does not let semantic override safety PROTECT even when eligible", () => {
+    const merged = mergeDecisions(
+      items,
+      [[decision("a", "PROTECT", "explicit-user-constraint")], [decision("a", "DROP", "semantic-drop-all")]],
+      { semanticEligibleIds: new Set(["a"]) },
+    );
+    expect(merged.find((entry) => entry.itemId === "a")?.action).toBe("PROTECT");
   });
 });

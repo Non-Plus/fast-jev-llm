@@ -1,17 +1,18 @@
-import { deterministicCompress } from "./compress.js";
-import { mergeDecisions } from "./engine.js";
+import { compressItem } from "./compress.js";
+import { buildDecisionAudit } from "./engine.js";
 import { deepFreeze } from "./freeze.js";
 import { toSessionState } from "./normalize.js";
 import { applyPruneRules } from "./rules/prune.js";
 import { applyProtectRules } from "./rules/protect.js";
 import { computeStats } from "./stats.js";
-import { estimateTokens } from "./tokens.js";
+import { resolveEstimator } from "./tokens.js";
 import type {
   CompactOptions,
   CompactionResult,
   ContextDecision,
   ContextItem,
   EngineConfig,
+  ReasonCode,
   SemanticProvider,
   Transcript,
 } from "./types.js";
@@ -38,6 +39,14 @@ function copyItem(item: ContextItem): ContextItem {
   };
 }
 
+function hydrateSemantic(decisions: readonly ContextDecision[]): ContextDecision[] {
+  return decisions.map((decision) => ({
+    ...decision,
+    authority: decision.authority ?? "semantic",
+    reasonCode: decision.reasonCode ?? ("SEMANTIC_CLASSIFICATION" as ReasonCode),
+  }));
+}
+
 async function materialize(
   items: readonly ContextItem[],
   decisions: readonly ContextDecision[],
@@ -45,6 +54,7 @@ async function materialize(
   provider?: SemanticProvider,
 ): Promise<ContextItem[]> {
   const byId = new Map(decisions.map((decision) => [decision.itemId, decision]));
+  const estimator = resolveEstimator(config);
   const compacted: ContextItem[] = [];
 
   for (const item of items) {
@@ -53,17 +63,34 @@ async function materialize(
       continue;
     }
     if (decision.action === "COMPRESS") {
-      const content = provider?.compress
-        ? await provider.compress(item)
-        : deterministicCompress(item, config);
+      if (provider?.compress) {
+        const content = await provider.compress(item);
+        compacted.push({
+          ...copyItem(item),
+          content,
+          tokenCount: estimator.estimate(content),
+          metadata: {
+            ...item.metadata,
+            compressed: true,
+            compression: {
+              strategy: "head_tail",
+              originalTokens: item.tokenCount,
+              retainedTokens: estimator.estimate(content),
+              content,
+            },
+          },
+        });
+        continue;
+      }
+      const compressed = compressItem(item, config, estimator);
       compacted.push({
         ...copyItem(item),
-        content,
-        tokenCount: estimateTokens(content, config.charsPerToken),
+        content: compressed.content,
+        tokenCount: compressed.retainedTokens,
         metadata: {
           ...item.metadata,
           compressed: true,
-          originalTokens: item.tokenCount,
+          compression: compressed,
         },
       });
       continue;
@@ -85,26 +112,36 @@ export async function compact(
   const protect = applyProtectRules(session.items, config);
   const prune = applyPruneRules(session.items, config);
 
-  let semantic: readonly ContextDecision[] = [];
+  const protectedIds = new Set(
+    protect
+      .filter((decision) => decision.action === "PROTECT")
+      .map((decision) => decision.itemId),
+  );
+  const semanticEligibleIds = new Set(
+    session.items.filter((item) => !protectedIds.has(item.id)).map((item) => item.id),
+  );
+
+  let semantic: ContextDecision[] = [];
   if (provider?.classify) {
-    const openItems = session.items.filter((item) => {
-      const protectedDecision = protect.find(
-        (decision) => decision.itemId === item.id && decision.action === "PROTECT",
-      );
-      return !protectedDecision;
-    });
-    semantic = await provider.classify(openItems, session);
+    const openItems = session.items.filter((item) => semanticEligibleIds.has(item.id));
+    semantic = hydrateSemantic(await provider.classify(openItems, session));
   }
 
-  const decisions = mergeDecisions(session.items, [protect, prune, semantic]);
-  const compacted = await materialize(session.items, decisions, config, provider);
-  const stats = computeStats(session.items, compacted, decisions);
+  const audit = buildDecisionAudit(session.items, [protect, prune, semantic], {
+    semanticEligibleIds,
+  });
+  const compacted = await materialize(session.items, audit.winning, config, provider);
+  const stats = computeStats(session.items, compacted, audit.winning);
 
   return deepFreeze({
     sessionId: session.sessionId,
+    session,
     items: session.items,
     compacted,
-    decisions,
+    decisions: audit.winning,
+    evaluations: audit.evaluations,
+    decisionRecords: audit.records,
+    relations: session.relations,
     stats,
   });
 }

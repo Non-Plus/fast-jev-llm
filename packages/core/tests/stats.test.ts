@@ -39,10 +39,38 @@ describe("computeStats", () => {
       { ...items[2]!, content: "stub", tokenCount: 4 },
     ];
     const decisions: ContextDecision[] = [
-      { action: "PROTECT", itemId: "p", rule: "explicit-user-constraint", reason: "constraint" },
-      { action: "KEEP", itemId: "k", rule: "default", reason: "keep" },
-      { action: "COMPRESS", itemId: "c", rule: "compress-large-output", reason: "big" },
-      { action: "DROP", itemId: "d", rule: "superseded-file-read", reason: "old" },
+      {
+        action: "PROTECT",
+        itemId: "p",
+        rule: "explicit-user-constraint",
+        reason: "constraint",
+        reasonCode: "USER_CONSTRAINT",
+        authority: "safety",
+      },
+      {
+        action: "KEEP",
+        itemId: "k",
+        rule: "default",
+        reason: "keep",
+        reasonCode: "DEFAULT_KEEP",
+        authority: "heuristic",
+      },
+      {
+        action: "COMPRESS",
+        itemId: "c",
+        rule: "compress-large-output",
+        reason: "big",
+        reasonCode: "LARGE_OUTPUT",
+        authority: "heuristic",
+      },
+      {
+        action: "DROP",
+        itemId: "d",
+        rule: "superseded-file-read",
+        reason: "old",
+        reasonCode: "SUPERSEDED_FILE_READ",
+        authority: "structural",
+      },
     ];
 
     const stats = computeStats(items, compacted, decisions);
@@ -63,11 +91,11 @@ describe("computeStats", () => {
     const stats = computeStats(
       [makeItem({ id: "a", content: "aaaa", tokenCount: 8 })],
       [makeItem({ id: "a", content: "aaaa", tokenCount: 8 })],
-      [{ action: "KEEP", itemId: "a", rule: "default", reason: "keep" }],
+      [{ action: "KEEP", itemId: "a", rule: "default", reason: "keep", reasonCode: "DEFAULT_KEEP", authority: "heuristic" }],
     );
     const text = formatStats(stats, "sess");
     expect(text).toContain("Session: sess");
-    expect(text).toContain("Original:");
+    expect(text).toContain("Original tokens:");
     expect(text).toContain("default");
   });
 });

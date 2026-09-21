@@ -5,6 +5,13 @@ import type {
   RuleStat,
 } from "./types.js";
 
+function bump(bucket: Record<string, RuleStat>, key: string, tokens: number): void {
+  const current = bucket[key] ?? { count: 0, tokens: 0 };
+  current.count += 1;
+  current.tokens += tokens;
+  bucket[key] = current;
+}
+
 export function computeStats(
   items: readonly ContextItem[],
   compacted: readonly ContextItem[],
@@ -12,6 +19,8 @@ export function computeStats(
 ): CompactionStats {
   const byId = new Map(items.map((item) => [item.id, item]));
   const byRule: Record<string, RuleStat> = {};
+  const byReasonCode: Record<string, RuleStat> = {};
+  const reductionByReasonCode: Record<string, number> = {};
 
   const stats: CompactionStats = {
     originalItems: items.length,
@@ -26,16 +35,17 @@ export function computeStats(
     compressedTokens: 0,
     droppedCount: 0,
     droppedTokens: 0,
+    reductionPercent: 0,
     byRule,
+    byReasonCode,
+    reductionByReasonCode,
   };
 
   for (const decision of decisions) {
     const item = byId.get(decision.itemId);
     const tokens = item?.tokenCount ?? 0;
-    const bucket = byRule[decision.rule] ?? { count: 0, tokens: 0 };
-    bucket.count += 1;
-    bucket.tokens += tokens;
-    byRule[decision.rule] = bucket;
+    bump(byRule, decision.rule, tokens);
+    bump(byReasonCode, decision.reasonCode, tokens);
 
     switch (decision.action) {
       case "PROTECT":
@@ -50,14 +60,24 @@ export function computeStats(
         stats.compressedCount += 1;
         const compactedItem = compacted.find((entry) => entry.id === decision.itemId);
         stats.compressedTokens += compactedItem?.tokenCount ?? tokens;
+        reductionByReasonCode[decision.reasonCode] =
+          (reductionByReasonCode[decision.reasonCode] ?? 0) +
+          (tokens - (compactedItem?.tokenCount ?? tokens));
         break;
       }
       case "DROP":
         stats.droppedCount += 1;
         stats.droppedTokens += tokens;
+        reductionByReasonCode[decision.reasonCode] =
+          (reductionByReasonCode[decision.reasonCode] ?? 0) + tokens;
         break;
     }
   }
+
+  stats.reductionPercent =
+    stats.originalTokens === 0
+      ? 0
+      : ((stats.originalTokens - stats.compactTokens) / stats.originalTokens) * 100;
 
   return stats;
 }
@@ -71,25 +91,39 @@ function padNum(value: number, width: number): string {
 }
 
 export function formatStats(stats: CompactionStats, sessionId: string): string {
-  const saved =
-    stats.originalTokens === 0
-      ? 0
-      : ((stats.originalTokens - stats.compactTokens) / stats.originalTokens) * 100;
-
   const lines = [
     `Session: ${sessionId}`,
-    `Original:  ${stats.originalItems} items / ${stats.originalTokens} tokens`,
-    `Compact:   ${stats.compactItems} items / ${stats.compactTokens} tokens`,
-    `Saved:     ${saved.toFixed(1)}% tokens`,
+    `Original tokens:   ${stats.originalTokens} (${stats.originalItems} items)`,
+    `Protected tokens:  ${stats.protectedTokens} (${stats.protectedCount} items)`,
+    `Kept tokens:       ${stats.keptTokens} (${stats.keptCount} items)`,
+    `Compressed tokens: ${stats.compressedTokens} (${stats.compressedCount} items after stub)`,
+    `Dropped tokens:    ${stats.droppedTokens} (${stats.droppedCount} items)`,
+    `Compact tokens:    ${stats.compactTokens} (${stats.compactItems} items)`,
+    `Reduction:         ${stats.reductionPercent.toFixed(1)}%`,
     "",
-    `Protected: ${stats.protectedCount} items / ${stats.protectedTokens} tokens`,
-    `Kept:      ${stats.keptCount} items / ${stats.keptTokens} tokens`,
-    `Compressed:${stats.compressedCount} items / ${stats.compressedTokens} tokens (after stub)`,
-    `Dropped:   ${stats.droppedCount} items / ${stats.droppedTokens} tokens`,
-    "",
-    "By winning rule:",
+    "By reason code (token reduction):",
   ];
 
+  const reductions = Object.entries(stats.reductionByReasonCode).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const reasonWidth = Math.max(
+    12,
+    ...reductions.map(([name]) => name.length),
+    ...Object.keys(stats.byReasonCode).map((name) => name.length),
+  );
+  if (reductions.length === 0) {
+    lines.push("  (none)");
+  } else {
+    for (const [code, tokens] of reductions) {
+      const stat = stats.byReasonCode[code];
+      lines.push(
+        `  ${pad(code, reasonWidth)}  ${padNum(stat?.count ?? 0, 4)} items  ${padNum(tokens, 7)} tokens saved`,
+      );
+    }
+  }
+
+  lines.push("", "By winning rule:");
   const rules = Object.entries(stats.byRule).sort((a, b) => b[1].tokens - a[1].tokens);
   const nameWidth = Math.max(12, ...rules.map(([name]) => name.length));
   for (const [name, rule] of rules) {

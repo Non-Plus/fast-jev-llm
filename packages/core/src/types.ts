@@ -1,6 +1,62 @@
 export const CONTEXT_ACTIONS = ["PROTECT", "KEEP", "COMPRESS", "DROP"] as const;
 export type ContextAction = (typeof CONTEXT_ACTIONS)[number];
 
+export const DECISION_AUTHORITIES = [
+  "safety",
+  "structural",
+  "heuristic",
+  "semantic",
+] as const;
+export type DecisionAuthority = (typeof DECISION_AUTHORITIES)[number];
+
+export const REASON_CODES = [
+  "SUPERSEDED_FILE_READ",
+  "WRITE_INVALIDATED_READ",
+  "SUPERSEDED_GIT_STATUS",
+  "SUPERSEDED_GIT_DIFF",
+  "OLD_DIRECTORY_LISTING",
+  "SUPERSEDED_TEST_RUN",
+  "TEST_FAILURE_RESOLVED",
+  "DUPLICATE_OUTPUT",
+  "LARGE_OUTPUT",
+  "RECENT_CONTEXT",
+  "USER_CONSTRAINT",
+  "SYSTEM_INSTRUCTION",
+  "CURRENT_TASK",
+  "UNRESOLVED_ERROR",
+  "DEFAULT_KEEP",
+  "SEMANTIC_CLASSIFICATION",
+] as const;
+export type ReasonCode = (typeof REASON_CODES)[number];
+
+export const RELATION_TYPES = [
+  "supersedes",
+  "invalidates",
+  "validates",
+  "depends_on",
+  "caused_by",
+] as const;
+export type RelationType = (typeof RELATION_TYPES)[number];
+
+export const FAILURE_KINDS = [
+  "test",
+  "build",
+  "compile",
+  "lint",
+  "runtime",
+  "network",
+  "deployment",
+  "unknown",
+] as const;
+export type FailureKind = (typeof FAILURE_KINDS)[number];
+
+export const COMPRESSION_STRATEGIES = [
+  "head_tail",
+  "error_extract",
+  "test_summary",
+] as const;
+export type CompressionStrategyName = (typeof COMPRESSION_STRATEGIES)[number];
+
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 
 export type ToolKind =
@@ -53,6 +109,10 @@ export interface Transcript {
   messages: ContextMessage[];
 }
 
+export interface TokenEstimator {
+  estimate(text: string): number;
+}
+
 export interface ToolMeta {
   name: string;
   kind: ToolKind;
@@ -62,8 +122,13 @@ export interface ToolMeta {
   exitCode?: number;
   isError?: boolean;
   path?: string;
+  normalizedPath?: string;
+  contentHash?: string;
+  operationIndex?: number;
+  writeBetweenReads?: boolean;
   command?: string;
   testTarget?: string;
+  failureKind?: FailureKind;
 }
 
 export interface ContextItem {
@@ -79,10 +144,32 @@ export interface ContextItem {
 }
 
 export interface ContextDecision {
-  action: ContextAction;
-  reason: string;
   itemId: string;
+  action: ContextAction;
   rule: string;
+  reasonCode: ReasonCode;
+  reason: string;
+  authority: DecisionAuthority;
+}
+
+export interface ItemDecisionRecord {
+  itemId: string;
+  winning: ContextDecision;
+  evaluations: readonly ContextDecision[];
+}
+
+export interface ContextRelation {
+  type: RelationType;
+  fromId: string;
+  toId: string;
+  rule: string;
+}
+
+export interface TaskState {
+  rootTask?: string;
+  currentTask?: string;
+  constraints: string[];
+  acceptanceCriteria: string[];
 }
 
 export interface SessionState {
@@ -91,12 +178,15 @@ export interface SessionState {
   tokenCount: number;
   createdAt: string;
   updatedAt: string;
+  task: TaskState;
+  relations: readonly ContextRelation[];
 }
 
 export interface EngineConfig {
   recentItemCount: number;
   largeOutputTokens: number;
   charsPerToken: number;
+  tokenEstimator?: TokenEstimator;
 }
 
 export interface PruningRule {
@@ -114,6 +204,23 @@ export interface SemanticProvider {
     session: SessionState,
   ): Promise<readonly ContextDecision[]>;
   compress?(item: ContextItem): Promise<string>;
+}
+
+export interface CompressedContent {
+  strategy: CompressionStrategyName;
+  originalTokens: number;
+  retainedTokens: number;
+  content: string;
+}
+
+export interface CompressionStrategy {
+  readonly name: CompressionStrategyName;
+  supports(item: ContextItem): boolean;
+  compress(
+    item: ContextItem,
+    config: EngineConfig,
+    estimator: TokenEstimator,
+  ): CompressedContent;
 }
 
 export interface RuleStat {
@@ -134,14 +241,21 @@ export interface CompactionStats {
   compressedTokens: number;
   droppedCount: number;
   droppedTokens: number;
+  reductionPercent: number;
   byRule: Record<string, RuleStat>;
+  byReasonCode: Record<string, RuleStat>;
+  reductionByReasonCode: Record<string, number>;
 }
 
 export interface CompactionResult {
   sessionId: string;
+  session: SessionState;
   items: readonly ContextItem[];
   compacted: readonly ContextItem[];
   decisions: readonly ContextDecision[];
+  evaluations: readonly ContextDecision[];
+  decisionRecords: readonly ItemDecisionRecord[];
+  relations: readonly ContextRelation[];
   stats: CompactionStats;
 }
 

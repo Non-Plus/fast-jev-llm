@@ -2,6 +2,14 @@ import type { ContextMessage, Transcript } from "../packages/core/src/types.js";
 
 const LARGE_LOCKFILE = `# yarn lockfile v1\n${"lodash@4.17.21:\n  version \"4.17.21\"\n  resolved \"https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz\"\n\n".repeat(250)}`;
 
+const TSC_ERROR = [
+  "src/rate-limit.ts:12:5 - error TS2304: Cannot find name 'windowMs'.",
+  "src/rate-limit.ts:18:7 - error TS2322: Type 'string' is not assignable to type 'number'.",
+  "src/server.ts:4:1 - error TS6133: 'secret' is declared but its value is never read.",
+  "Found 3 errors in 2 files.",
+  ...Array.from({ length: 250 }, (_, i) => `note: extra compiler chatter line ${i}`),
+].join("\n");
+
 let messageSeq = 0;
 let callSeq = 0;
 
@@ -72,11 +80,14 @@ export function buildCodingSessionTranscript(): Transcript {
       "You are a coding assistant working in a local repository. Prefer small, test-backed changes.",
     ),
     user(
-      "Add rate limiting to the Express API in src/server.ts. Never log secrets or API keys.",
+      "Add rate limiting to the Express API in src/server.ts. Never log secrets or API keys.\nAcceptance criteria: requests over the limit return 429.",
     ),
     assistant("I'll inspect the repository layout and current git state."),
     ...toolExchange("Shell", { command: "ls" }, "package.json\nsrc\nREADME.md\n"),
     ...toolExchange("Shell", { command: "echo hello" }, "hello\n"),
+    ...toolExchange("Shell", { command: "echo hello" }, "hello from a later shell\n"),
+    ...toolExchange("Shell", { command: "pwd" }, "/workspace/api\n"),
+    ...toolExchange("Shell", { command: "pwd" }, "/workspace/api\n"),
     ...toolExchange(
       "Shell",
       { command: "git status" },
@@ -97,6 +108,11 @@ export function buildCodingSessionTranscript(): Transcript {
       { path: "src/server.ts" },
       "import express from 'express';\nexport const app = express();\napp.get('/health', (_req, res) => res.json({ ok: true }));\n",
     ),
+    ...toolExchange(
+      "Read",
+      { path: "src/server.ts" },
+      "import express from 'express';\nexport const app = express();\napp.get('/health', (_req, res) => res.json({ ok: true }));\n",
+    ),
     user("Also add a health check if one is missing."),
     assistant("I'll look at the routes and re-check package.json."),
     ...toolExchange("Glob", { glob: "src/**" }, "src/server.ts\nsrc/routes.ts\n"),
@@ -110,7 +126,6 @@ export function buildCodingSessionTranscript(): Transcript {
       { path: "package.json" },
       '{\n  "name": "api",\n  "scripts": { "test": "vitest run", "lint": "eslint ." }\n}\n',
     ),
-    ...toolExchange("Shell", { command: "echo hello" }, "hello\n"),
     ...toolExchange(
       "Shell",
       { command: "git status" },
@@ -135,20 +150,54 @@ export function buildCodingSessionTranscript(): Transcript {
     ),
     assistant("I'll add rate-limit middleware next to the server entrypoint."),
     ...toolExchange(
-      "Write",
+      "Read",
       { path: "src/rate-limit.ts" },
+      "export function rateLimit() { return (req, res, next) => next(); }\n",
+    ),
+    ...toolExchange(
+      "Write",
+      { path: "src/rate-limit.ts", contents: "export function rateLimit() { return limiter; }" },
       "Wrote src/rate-limit.ts",
     ),
+    ...toolExchange(
+      "Read",
+      { path: "src/rate-limit.ts" },
+      "export function rateLimit() { return limiter; }\n",
+    ),
+    user("continue"),
     ...toolExchange(
       "Shell",
       { command: "pnpm test" },
       "FAIL src/rate-limit.test.ts\n  1 failed, 2 passed\n",
       { isError: true, exitCode: 1 },
     ),
+    user("yes"),
+    ...toolExchange(
+      "Shell",
+      { command: "tsc -p tsconfig.json" },
+      TSC_ERROR,
+      { isError: true, exitCode: 1 },
+    ),
+    user("fix that error"),
+    assistant("The limiter was a no-op and the compile error is a missing identifier."),
+    ...toolExchange(
+      "Write",
+      {
+        path: "src/rate-limit.ts",
+        contents: "export function rateLimit() { const windowMs = 60_000; return limiter(windowMs); }",
+      },
+      "Wrote src/rate-limit.ts",
+    ),
+    ...toolExchange(
+      "Shell",
+      { command: "tsc -p tsconfig.json" },
+      "Found 0 errors.\n",
+      { exitCode: 0 },
+    ),
     ...toolExchange(
       "Read",
       { path: "src/rate-limit.ts" },
-      "export function rateLimit() { return (req, res, next) => next(); }\n",
+      "export function rateLimit() { const windowMs = 60_000; return limiter(windowMs); }\n",
     ),
     ...toolExchange(
       "Shell",
@@ -156,10 +205,13 @@ export function buildCodingSessionTranscript(): Transcript {
       "FAIL src/rate-limit.test.ts\n  1 failed, 2 passed\nAssertionError: expected 429, got 200\n",
       { isError: true, exitCode: 1 },
     ),
-    assistant("The limiter was a no-op. I'll enforce a window and retry-after header."),
+    assistant("I'll enforce a window and retry-after header."),
     ...toolExchange(
       "Write",
-      { path: "src/rate-limit.ts" },
+      {
+        path: "src/rate-limit.ts",
+        contents: "export function rateLimit() { /* token bucket */ }",
+      },
       "Wrote src/rate-limit.ts",
     ),
     ...toolExchange(

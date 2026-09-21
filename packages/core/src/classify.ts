@@ -1,4 +1,4 @@
-import type { ToolKind } from "./types.js";
+import type { FailureKind, ToolKind } from "./types.js";
 
 const FILE_READ_NAMES = new Set([
   "read",
@@ -287,6 +287,42 @@ export function isToolSuccess(options: {
     return isTestSuccessFromOutput(options.result ?? "");
   }
   return false;
+}
+
+export function classifyFailureKind(options: {
+  kind: ToolKind;
+  command?: string;
+  result?: string;
+  isError?: boolean;
+  exitCode?: number;
+}): FailureKind | undefined {
+  const failed = isToolFailure(options);
+  if (!failed) {
+    return undefined;
+  }
+  if (options.kind === "test_run") {
+    return "test";
+  }
+  const blob = `${options.command ?? ""} ${options.result ?? ""}`.toLowerCase();
+  if (/\b(eslint|lint|ruff|pylint)\b/.test(blob)) {
+    return "lint";
+  }
+  if (/\b(error ts\d+|cannot find name|tsc\b|compilation (error|failed)|syntaxerror)\b/.test(blob)) {
+    return "compile";
+  }
+  if (/\b(npm run build|pnpm build|yarn build|cargo build|webpack|vite build|compile failed)\b/.test(blob)) {
+    return "build";
+  }
+  if (/\b(econnrefused|enotfound|etimedout|eai_again|network|dns|socket hang up)\b/.test(blob)) {
+    return "network";
+  }
+  if (/\b(deploy|kubectl|helm|terraform apply|gh release)\b/.test(blob)) {
+    return "deployment";
+  }
+  if (/\b(exception|stack trace|typeerror|referenceerror|panic|fatal error)\b/.test(blob)) {
+    return "runtime";
+  }
+  return "unknown";
 }
 
 export function failureKey(kind: ToolKind, path?: string, command?: string, testTarget?: string): string {

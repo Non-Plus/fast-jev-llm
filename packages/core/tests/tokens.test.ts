@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTokens } from "../src/tokens.js";
+import { ApproximateTokenEstimator, estimateTokens } from "../src/tokens.js";
 
 describe("estimateTokens", () => {
   it("returns 0 for empty text", () => {
@@ -19,5 +19,13 @@ describe("estimateTokens", () => {
   it("returns 0 when charsPerToken is not positive", () => {
     expect(estimateTokens("hello", 0)).toBe(0);
     expect(estimateTokens("hello", -2)).toBe(0);
+  });
+});
+
+describe("ApproximateTokenEstimator", () => {
+  it("implements TokenEstimator with the chars/4 heuristic", () => {
+    const estimator = new ApproximateTokenEstimator(4);
+    expect(estimator.estimate("abcd")).toBe(1);
+    expect(estimator.estimate("abcde")).toBe(2);
   });
 });
