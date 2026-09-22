@@ -52,7 +52,7 @@ describe("npm package contents", () => {
       bin?: { ctx?: string };
     };
     expect(pkg.dependencies ?? {}).toEqual({});
-    expect(pkg.bin?.ctx).toBe("./dist/ctx.js");
+    expect(pkg.bin?.ctx).toBe("dist/ctx.js");
     for (const path of files) {
       for (const pattern of PROHIBITED) {
         expect(path, path).not.toMatch(pattern);
