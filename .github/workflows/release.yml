@@ -1,8 +1,15 @@
 name: Release
 
-# Publishes only when a version tag is pushed (e.g. v0.1.0).
-# Configure npm trusted publishing for this repository before the first tag.
-# Do not publish from ordinary pushes to main.
+# Publishes fast-jev-llm to npm when a version tag is pushed (e.g. v0.1.0).
+#
+# Before the first publish, configure npm Trusted Publishing:
+#   https://docs.npmjs.com/trusted-publishers
+#   Organization/user: Non-Plus
+#   Repository: fast-jev-llm
+#   Workflow filename: release.yml
+#   Optional: create GitHub environment `npm` and set `environment: npm` on the job for approvals
+#
+# Do not publish from pushes to main — only from tags.
 
 on:
   push:
@@ -13,27 +20,57 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
+    name: Publish to npm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify tag matches cli/package.json version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./cli/package.json').version")"
+          if [[ "$TAG" != "$PKG" ]]; then
+            echo "Tag v${TAG} does not match cli/package.json version ${PKG}"
+            exit 1
+          fi
+          echo "Release version ${PKG} verified"
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Upgrade npm for trusted publishing (OIDC)
+        run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm build
-      - name: Pack (inspect, do not upload)
+
+      - name: Inspect npm pack
         working-directory: cli
         run: npm pack --dry-run --ignore-scripts
-      - name: Publish
+
+      - name: Publish to npm (OIDC trusted publishing)
         working-directory: cli
-        run: npm publish --access public --provenance
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          npm whoami || true
+          npm publish --access public --provenance

@@ -36,7 +36,8 @@
     "developer-tools"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "node scripts/build.mjs",

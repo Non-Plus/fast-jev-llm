@@ -76,4 +76,8 @@ or automatic upload.
 - Note if hooks, report schema, or CLI exit codes change (0.x may evolve)
 
 Do not `npm publish` or push version tags from a pull request. Publishing
-is a human release action (see [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)).
+is a human release action (see [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
+and [docs/NPM_PUBLISHING.md](docs/NPM_PUBLISHING.md)).
+
+CI publishes **`fast-jev-llm`** to npm only when a **`v*`** tag is pushed;
+the workflow is `.github/workflows/release.yml` (npm trusted publishing / OIDC).
