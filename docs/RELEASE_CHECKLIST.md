@@ -27,10 +27,11 @@ GitHub Release until this list is complete.
 
 ## npm trusted publishing (one-time)
 
-Follow [docs/NPM_PUBLISHING.md](NPM_PUBLISHING.md):
+Follow [docs/NPM_PUBLISHING.md](NPM_PUBLISHING.md) and [docs/PUBLISHING_RULES.md](PUBLISHING_RULES.md):
 
-- npm: Trusted publisher → GitHub Actions → `Non-Plus` / `fast-jev-llm` / **`release.yml`**
-- GitHub: optional **`npm`** environment with reviewers
+- npm: Trusted publisher → GitHub Actions → `Non-Plus` / `fast-jev-llm` / **`release.yml`** / environment **`npm`**
+- GitHub: **`npm`** environment with **required reviewers**
+- Repository **public** (provenance + open source)
 - Confirm tag `v0.1.0` matches `cli/package.json` version `0.1.0`
 
 ## After the list is checked (human)

@@ -1,15 +1,8 @@
 name: Release
 
-# Publishes fast-jev-llm to npm when a version tag is pushed (e.g. v0.1.0).
-#
-# Before the first publish, configure npm Trusted Publishing:
-#   https://docs.npmjs.com/trusted-publishers
-#   Organization/user: Non-Plus
-#   Repository: fast-jev-llm
-#   Workflow filename: release.yml
-#   Optional: create GitHub environment `npm` and set `environment: npm` on the job for approvals
-#
-# Do not publish from pushes to main — only from tags.
+# Publishes fast-jev-llm to npm when a version tag is pushed (e.g. v0.1.1).
+# npm publish runs only in the protected `npm` environment (human approval).
+# See docs/PUBLISHING_RULES.md and docs/NPM_PUBLISHING.md.
 
 on:
   push:
@@ -25,8 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish to npm
+  verify:
+    name: Verify release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,8 +44,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
 
       - name: Upgrade npm for trusted publishing (OIDC)
         run: npm install -g npm@latest
@@ -66,6 +57,30 @@ jobs:
       - name: Inspect npm pack
         working-directory: cli
         run: npm pack --dry-run --ignore-scripts
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm for trusted publishing (OIDC)
+        run: npm install -g npm@latest
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
 
       - name: Publish to npm (OIDC trusted publishing)
         working-directory: cli
