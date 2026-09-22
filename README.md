@@ -1,115 +1,201 @@
-# Fast Jev context engine
+# fast-jev-llm
 
-Provider-independent context management for AI coding agents.
+**Context optimization for Claude Code, Codex, and Cursor.**
 
-The core engine is deterministic: it never calls a model. **Shadow
-adapters** can observe real Codex, Cursor, or Claude Code sessions
-and report what the engine would protect, keep, compress, and drop
-**without modifying those products**.
+Shadow Mode only. The engine analyzes what context could be protected,
+kept, compressed, or dropped **without modifying** the coding agent’s
+real context.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
-[docs/SETUP.md](docs/SETUP.md),
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md),
-[docs/DOGFOODING.md](docs/DOGFOODING.md),
-[docs/SHADOW_MODE.md](docs/SHADOW_MODE.md),
-[docs/SEMANTIC_LAYER.md](docs/SEMANTIC_LAYER.md),
-[docs/PRIVACY.md](docs/PRIVACY.md),
-[docs/BENCHMARKING.md](docs/BENCHMARKING.md),
-[docs/CODEX_INTEGRATION.md](docs/CODEX_INTEGRATION.md),
-[docs/CURSOR_INTEGRATION.md](docs/CURSOR_INTEGRATION.md),
-[docs/CLAUDE_INTEGRATION.md](docs/CLAUDE_INTEGRATION.md),
-and [docs/FAST_JEV_BASELINE.md](docs/FAST_JEV_BASELINE.md).
+Independent open-source project. Not affiliated with Anthropic, OpenAI,
+Cursor, TypeSafe, or [fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction).
 
-## Requirements
+[Install](#install) · [Quick start](#quick-start) · [Safety](docs/SAFETY.md) · [Privacy](docs/PRIVACY.md)
 
-- Node.js 22+
-- pnpm
+## What is this?
 
-## Everyday shadow dogfooding
+Long coding-agent sessions accumulate stale file reads, superseded test
+failures, old git snapshots, directory listings, huge build output, and
+historical debugging dumps.
 
-```bash
-pnpm install
-pnpm ctx -- setup
+fast-jev-llm separates context items into:
+
+| Decision | Meaning |
+| --- | --- |
+| **PROTECT** | Must remain (constraints, current task, unresolved errors, …) |
+| **KEEP** | Remain as-is |
+| **COMPRESS** | Keep a shorter form |
+| **DROP** | The engine *believes* this item could be removed |
+
+**DROP is an estimate.** It does **not** mean the agent actually removed
+it. This release does not enable active compaction.
+
+```
+Coding Agent
+     ↓
+Transcript
+     ↓
+Adapter
+     ↓
+Context Engine
+     ↓
+Protect / Keep / Compress / Drop
+     ↓
+Local Shadow Report
 ```
 
-Use Codex, Cursor, and Claude Code as usual. Then:
+## Supported agents
+
+| Agent | Support | Transcript data |
+| --- | --- | --- |
+| Codex | Shadow | full tool results |
+| Cursor | Shadow | tool calls only* |
+| Claude Code | Shadow | full tool results |
+
+\*Based on currently observed Cursor transcript format. Tested with
+Codex CLI 0.151, Cursor 3.21, Claude Code 2.1. Later versions are not
+guaranteed compatible.
+
+Jev is an **optional** semantic relevance provider, not a required
+dependency. Deterministic analysis is the default (`semanticMode=off`).
+
+## Install
+
+Node.js 22 or newer.
 
 ```bash
-pnpm ctx -- stats
+npm install -g fast-jev-llm
+ctx setup
 ```
 
-`ctx setup` installs **passive SessionEnd hooks only**. It does not
-rewrite context. Reports stay on disk under `~/.context-engine/`.
-Context Engine stores shadow-analysis reports locally. It does not send
-usage telemetry.
+or:
 
 ```bash
-pnpm ctx -- status
-pnpm ctx -- doctor
-pnpm ctx -- sessions
-pnpm ctx -- session <id>
-pnpm ctx -- stats --days 7
-pnpm ctx -- dogfood status
+npx fast-jev-llm setup
 ```
 
-## Commands
+## Quick start
 
 ```bash
-pnpm install
-pnpm test
-pnpm compact
-pnpm bench
-pnpm bench:codex
-pnpm bench:cursor
-pnpm bench:claude
-pnpm bench:compare
+ctx setup
+
+# use Codex, Cursor, and Claude Code normally
+
+ctx stats
 ```
 
-### Codex (shadow analysis)
+Example (`ctx stats`):
 
-```bash
-pnpm ctx -- codex analyze ~/.codex/sessions/2026/09/21/rollout-….jsonl
-pnpm ctx -- codex analyze session.jsonl --json
-pnpm ctx -- codex explain session.jsonl
-pnpm ctx -- codex analyze session.jsonl --semantic-mode remote --semantic-provider jev
+```
+Context Engine — Local Shadow Statistics
+
+Period                 All time
+Sessions               42
+
+Tokens observed        8.42M
+Effective context      4.11M
+Potential reduction    51.2%
+
+Data completeness
+────────────────────────
+full_tool_results      30
+tool_calls_only        12
 ```
 
-Shadow mode **analyzes what Context Engine would remove without
-modifying the Codex session.**
+Observed reduction varies substantially by agent, transcript format, and
+session workload. Do not compare Cursor `tool_calls_only` sessions with
+Codex/Claude as if the inputs were equivalent.
 
-### Cursor (shadow analysis)
+Other commands: `ctx status`, `ctx doctor`, `ctx sessions`,
+`ctx session <id>`, `ctx --help`, `ctx --version`.
 
-```bash
-pnpm ctx -- cursor analyze ~/.cursor/projects/<slug>/agent-transcripts/<id>/<id>.jsonl
-pnpm ctx -- cursor analyze session.jsonl --json --cwd /path/to/workspace
-pnpm ctx -- cursor explain session.jsonl
-pnpm ctx -- cursor analyze session.jsonl --semantic-mode remote --semantic-provider jev
+## Why this exists
+
+Agents keep tool history that is often superseded. The engine is a
+**local, inspectable** way to measure that. It does not claim to
+automatically improve coding quality.
+
+## Architecture
+
+```
+                Core
+                 │
+       ┌─────────┼─────────┐
+       │         │         │
+     Codex     Cursor    Claude
+       │         │         │
+       └─────────┼─────────┘
+                 │
+        Canonical Context
+                 │
+        Deterministic Engine
+                 │
+        Optional Semantic
+                 │
+              Reports
 ```
 
-Shadow mode **analyzes what Context Engine would remove without
-modifying the Cursor session.**
+Adapters normalize vendor transcripts into a provider-independent
+representation. The core never imports Codex, Cursor, or Claude types.
 
-### Claude Code (shadow analysis)
-
-```bash
-pnpm ctx -- claude analyze ~/.claude/projects/<slug>/<session>.jsonl
-pnpm ctx -- claude analyze session.jsonl --json
-pnpm ctx -- claude explain session.jsonl
-pnpm ctx -- claude analyze session.jsonl --semantic-mode remote --semantic-provider jev
-```
-
-Shadow mode **analyzes what Context Engine would remove without
-modifying the Claude session.**
-
-Semantic classification is **off by default**. Remote providers such as
-Jev run only with an explicit `--semantic-mode remote` and never send
-forbidden or recognized-secret items. See [docs/PRIVACY.md](docs/PRIVACY.md).
-
-`pnpm compact` still runs the engine against `fixtures/coding-session.ts`.
+V0.1 is **CLI-first**. Internal `@fast-jev/*` packages are not a
+supported public library API.
 
 ## Privacy
 
-Shadow analysis is local. Transcripts, source, tool output, and
-commands are not sent anywhere unless you explicitly enable
-`semantic-mode remote`. There is no telemetry. Default semantic mode is
-`off`.
+Default:
+
+- local analysis
+- no telemetry, analytics, crash reporter, or upload
+- no raw transcript copies in the report store
+- no cloud account
+
+Remote semantic mode is **opt-in** and may send selected context to a
+configured provider (Jev). The sensitive-content gate is best-effort,
+not a full secret scanner.
+
+See [docs/PRIVACY.md](docs/PRIVACY.md).
+
+## Prior art / inspiration
+
+This project was inspired in part by
+[fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction).
+
+| | fast-jev-compaction | fast-jev-llm |
+| --- | --- | --- |
+| Focus | Claude-oriented Jev-guided pruning | Provider-independent deterministic analysis |
+| Agents | Claude-oriented | Codex, Cursor, Claude Code |
+| Default | Jev-backed compaction library/plugin | Shadow analysis, semantic mode off |
+| This release | Active compaction in that project | **Observation only** |
+
+fast-jev-llm is not a fork, successor, or official companion of
+fast-jev-compaction.
+
+Benchmark details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md). This README
+does not claim superiority.
+
+## Versioning
+
+The public npm package starts at **0.1.0**. 0.x means the CLI, config, and
+report schema may still evolve. The report schema is versioned independently
+(`schemaVersion` in each local report).
+
+V0.1 is **CLI-only**. Internal `@fast-jev/*` packages are private.
+
+See [docs/VERSIONING.md](docs/VERSIONING.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE) and [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success (`--help` / `--version` included) |
+| 1 | Operational failure |
+| 2 | Invalid usage |
+
+SessionEnd hooks always exit 0 (fail open). `--debug` logs extra
+diagnostics and never prints credential values.
+
+macOS and Linux are tested. Windows is not claimed.

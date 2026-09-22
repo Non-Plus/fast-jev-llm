@@ -13,12 +13,13 @@ export function resolveHookCommand(explicit?: string): string {
   if (explicit && explicit.length > 0) {
     return explicit;
   }
+  const fromEnv = process.env.CONTEXT_ENGINE_HOOK_COMMAND;
+  if (fromEnv && fromEnv.length > 0) {
+    return fromEnv;
+  }
   const argv1 = process.argv[1];
-  if (argv1 && argv1.length > 0) {
-    if (argv1.endsWith(".ts")) {
-      return `${process.execPath} --import tsx ${argv1}`;
-    }
-    return `${process.execPath} ${argv1}`;
+  if (argv1 && argv1.endsWith(".ts")) {
+    return `${process.execPath} --import tsx ${argv1}`;
   }
   return "ctx";
 }

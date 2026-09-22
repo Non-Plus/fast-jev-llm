@@ -99,7 +99,7 @@ export async function runSetup(paths: EnginePaths, options: SetupOptions): Promi
       const hookCommand = resolveHookCommand(options.hookCommand);
       const plans = await planInstall(paths, hookCommand, agents);
       write(stdout, "");
-      write(stdout, formatInstallPlan(plans));
+      write(stdout, formatInstallPlan(plans, paths.home));
       write(stdout, "");
       const proceed = await promptYes(rl, "Proceed?", false);
       if (!proceed) {
@@ -125,7 +125,7 @@ export async function runSetup(paths: EnginePaths, options: SetupOptions): Promi
       write(stdout, `Semantic mode: ${semanticMode}`);
     }
     write(stdout, "");
-    write(stdout, formatInstallPlan(plans));
+    write(stdout, formatInstallPlan(plans, paths.home));
   }
 
   return installSelected(paths, {

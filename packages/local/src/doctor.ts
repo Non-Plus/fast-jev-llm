@@ -1,10 +1,11 @@
 import { access, constants } from "node:fs/promises";
+import { basename } from "node:path";
 import type { EnginePaths } from "./types.js";
 import { loadConfig } from "./config.js";
 import { detectAgents } from "./detect.js";
 import { resolveHookCommand } from "./hook-command.js";
 import { planInstall } from "./install.js";
-import { reportsDir, resolveEnginePaths } from "./paths.js";
+import { displayUserPath, reportsDir, resolveEnginePaths } from "./paths.js";
 import { jevProviderFromEnv } from "@fast-jev/provider-jev";
 import { AGENTS } from "./types.js";
 
@@ -28,14 +29,18 @@ export async function runDoctor(paths: EnginePaths = resolveEnginePaths()): Prom
   checks.push({
     name: "ctx process",
     ok: true,
-    detail: process.argv[1] ?? "unknown",
+    detail: basename(process.argv[1] ?? "ctx"),
   });
 
   const loaded = await loadConfig(paths);
   checks.push({
     name: "config",
     ok: !loaded.error,
-    detail: loaded.error ? loaded.error : loaded.exists ? paths.configPath : "missing (defaults)",
+    detail: loaded.error
+      ? loaded.error
+      : loaded.exists
+        ? displayUserPath(paths.configPath, paths.home)
+        : "missing (defaults)",
   });
 
   try {
@@ -43,7 +48,7 @@ export async function runDoctor(paths: EnginePaths = resolveEnginePaths()): Prom
     checks.push({
       name: "report directory",
       ok: true,
-      detail: paths.reportsRoot,
+      detail: displayUserPath(paths.reportsRoot, paths.home),
     });
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
@@ -57,7 +62,7 @@ export async function runDoctor(paths: EnginePaths = resolveEnginePaths()): Prom
     checks.push({
       name: `${agent} reports dir`,
       ok: true,
-      detail: reportsDir(paths, agent),
+      detail: displayUserPath(reportsDir(paths, agent), paths.home),
     });
   }
 

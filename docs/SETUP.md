@@ -7,14 +7,24 @@ writes **local** analysis reports. It does not modify session context.
 ## Install
 
 ```bash
-pnpm install
-pnpm ctx -- setup
+npm install -g fast-jev-llm
+ctx setup
 ```
 
-Installed usage (once the `ctx` binary is on `PATH`):
+or:
 
 ```bash
-ctx setup
+npx fast-jev-llm setup
+```
+
+Hooks call `ctx` on `PATH`. Prefer a global install so SessionEnd still
+works after a terminal restart and from any working directory.
+
+From this repository (development only):
+
+```bash
+pnpm install
+pnpm ctx -- setup
 ```
 
 Default analysis mode is **local deterministic only**. Remote semantic

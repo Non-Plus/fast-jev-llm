@@ -10,7 +10,7 @@ export type {
   StoreReport,
   UninstallResult,
 } from "./types.js";
-export { resolveEnginePaths, reportsDir } from "./paths.js";
+export { resolveEnginePaths, reportsDir, displayUserPath } from "./paths.js";
 export { defaultConfig, loadConfig, parseConfig, saveConfig } from "./config.js";
 export { detectAgents } from "./detect.js";
 export { formatInstallPlan, installSelected, planInstall, uninstallAgents } from "./install.js";
@@ -31,3 +31,4 @@ export { runSetup, formatDetectedAgents } from "./setup.js";
 export { PRODUCT_USAGE, runProductCommand } from "./cli.js";
 export { formatSessionsTable, formatSessionDetail, formatStats, statsExportDocument, filterSessions, findSession } from "./reports-view.js";
 export { ENGINE_VERSION, CORE_VERSION, ADAPTER_VERSIONS, semanticPolicyVersion } from "./versions.js";
+export { RELEASE_VERSION } from "./release-version.js";

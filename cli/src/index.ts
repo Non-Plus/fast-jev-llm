@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -26,8 +25,9 @@ import {
   writeShadowReport as writeCursorShadowReport,
 } from "@fast-jev/adapter-cursor";
 import { jevProviderFromEnv } from "@fast-jev/provider-jev";
-import { PRODUCT_USAGE, runProductCommand } from "@fast-jev/local";
-import { codingSessionTranscript } from "../../fixtures/coding-session.ts";
+import { PRODUCT_USAGE, RELEASE_VERSION, runProductCommand } from "@fast-jev/local";
+import { defaultDemoTranscript } from "./default-transcript.ts";
+import { isDebugEnabled, sanitizeDebug, sanitizeErrorMessage } from "./redact.ts";
 
 function workspaceCwd(): string {
   return process.env.INIT_CWD ?? process.cwd();
@@ -47,37 +47,7 @@ function expandPath(input: string): string {
 }
 
 function usage(): never {
-  console.error(`Usage:
-  ctx setup [--dry-run] [--yes] [--agents codex,cursor,claude]
-      [--semantic-mode off|remote] [--confirm-remote]
-  ctx status
-  ctx doctor
-  ctx sessions [--agent <id>] [--workspace <name>] [--limit <n>]
-  ctx session <id>
-  ctx stats [--days <n>] [--agent <id>] [--json] [--export <file>]
-  ctx uninstall [codex|cursor|claude]
-  ctx reports prune --older-than 30d
-  ctx reports clear [--yes]
-  ctx dogfood status
-  ctx compact [transcript.json]
-  ctx codex analyze <transcript.jsonl> [--json] [--save] [--save-dir <dir>] [--preview-length <n>] [--no-previews]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-  ctx codex explain <transcript.jsonl> [--preview-length <n>] [--no-previews]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-  ctx cursor analyze <session-source> [--json] [--save] [--save-dir <dir>] [--preview-length <n>]
-      [--report-previews] [--no-report-previews] [--cwd <dir>]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-  ctx cursor explain <session-source> [--preview-length <n>] [--no-report-previews]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-  ctx claude analyze <transcript.jsonl> [--json] [--save] [--save-dir <dir>] [--preview-length <n>]
-      [--report-previews] [--no-report-previews] [--cwd <dir>]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-  ctx claude explain <transcript.jsonl> [--preview-length <n>] [--no-report-previews]
-      [--semantic-mode off|local|remote] [--semantic-provider jev] [--semantic-cache]
-
-Default semantic-mode is off. Remote classification is never implicit.
-Shadow mode only. No Codex, Cursor, or Claude context is modified.
-Context Engine stores shadow-analysis reports locally. It does not send usage telemetry.`);
+  console.error(PRODUCT_USAGE);
   process.exit(2);
 }
 
@@ -166,7 +136,7 @@ function resolveSemantic(
 async function runCompact(file?: string): Promise<void> {
   const transcript: Transcript = file
     ? (JSON.parse(await readFile(expandPath(file), "utf8")) as Transcript)
-    : codingSessionTranscript;
+    : defaultDemoTranscript;
   const result = await compact(transcript);
   console.log(formatStats(result.stats, result.sessionId));
   console.log("\nNon-KEEP decisions:");
@@ -374,22 +344,38 @@ const argv = process.argv.slice(2);
 while (argv[0] === "--") {
   argv.shift();
 }
-if (argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {
-  console.error(PRODUCT_USAGE);
-  process.exit(2);
+if (takeFlag(argv, "--debug")) {
+  process.env.CONTEXT_ENGINE_DEBUG = "1";
 }
-const productExit = await runProductCommand(argv);
-if (productExit !== null) {
-  process.exit(productExit);
-}
-if (argv[0] === "codex") {
-  await runCodex(argv.slice(1));
-} else if (argv[0] === "cursor") {
-  await runCursor(argv.slice(1));
-} else if (argv[0] === "claude") {
-  await runClaude(argv.slice(1));
-} else if (argv[0] === "compact") {
-  await runCompact(argv[1]);
-} else {
-  await runCompact(argv[0]);
+try {
+  if (argv[0] === "--version" || argv[0] === "-v" || argv[0] === "version") {
+    console.log(`fast-jev-llm ${RELEASE_VERSION}`);
+    process.exit(0);
+  }
+  if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(PRODUCT_USAGE);
+    process.exit(argv.length === 0 ? 2 : 0);
+  }
+  const productExit = await runProductCommand(argv);
+  if (productExit !== null) {
+    process.exit(productExit);
+  }
+  if (argv[0] === "codex") {
+    await runCodex(argv.slice(1));
+  } else if (argv[0] === "cursor") {
+    await runCursor(argv.slice(1));
+  } else if (argv[0] === "claude") {
+    await runClaude(argv.slice(1));
+  } else if (argv[0] === "compact") {
+    await runCompact(argv[1]);
+  } else {
+    console.error(PRODUCT_USAGE);
+    process.exit(2);
+  }
+} catch (error) {
+  console.error(sanitizeErrorMessage(error));
+  if (isDebugEnabled()) {
+    console.error(sanitizeDebug(error));
+  }
+  process.exit(1);
 }

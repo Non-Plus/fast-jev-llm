@@ -1,24 +1,60 @@
 {
-  "name": "@fast-jev/cli",
+  "name": "fast-jev-llm",
   "version": "0.1.0",
+  "description": "Context optimization for Claude Code, Codex, and Cursor. Shadow-mode analysis only.",
+  "license": "MIT",
   "type": "module",
-  "scripts": {
-    "build": "node -e \"process.exit(0)\"",
-    "start": "tsx src/index.ts"
+  "engines": {
+    "node": ">=22"
   },
   "bin": {
-    "ctx": "./src/index.ts"
+    "ctx": "./dist/ctx.js"
   },
-  "dependencies": {
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Non-Plus/fast-jev-llm.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/Non-Plus/fast-jev-llm",
+  "bugs": {
+    "url": "https://github.com/Non-Plus/fast-jev-llm/issues"
+  },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "context",
+    "codex",
+    "cursor",
+    "claude",
+    "context-management",
+    "developer-tools"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "node scripts/build.mjs",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
     "@fast-jev/adapter-claude": "workspace:*",
     "@fast-jev/adapter-codex": "workspace:*",
     "@fast-jev/adapter-cursor": "workspace:*",
     "@fast-jev/core": "workspace:*",
     "@fast-jev/local": "workspace:*",
-    "@fast-jev/provider-jev": "workspace:*"
-  },
-  "devDependencies": {
+    "@fast-jev/provider-jev": "workspace:*",
     "@types/node": "^22.13.10",
-    "tsx": "^4.19.3"
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
   }
 }

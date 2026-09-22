@@ -8,4 +8,8 @@ coverage
 .pnpm-store
 .context-engine
 packages/local/.testhomes
+*.tgz
+cli/README.md
+cli/LICENSE
+cli/CHANGELOG.md
 

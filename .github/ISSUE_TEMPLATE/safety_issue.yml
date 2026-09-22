@@ -1,0 +1,25 @@
+name: Safety issue
+description: Unsafe DROP, hook corruption, or privacy concern
+labels: [safety]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If this includes secrets or real transcripts, use GitHub Security Advisories instead of a public issue. See SECURITY.md.
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is unsafe
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Category
+      options:
+        - Unsafe DROP / protected item
+        - Hook config corruption
+        - Remote provider over-sharing
+        - Secret leakage
+        - Unexpected command execution
+        - Other

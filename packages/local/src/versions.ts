@@ -1,24 +1,13 @@
-import { createRequire } from "node:module";
 import { DEFAULT_SEMANTIC_POLICY } from "@fast-jev/core";
 import { RULESET_VERSION } from "./types.js";
+import { RELEASE_VERSION } from "./release-version.js";
 
-const require = createRequire(import.meta.url);
-
-function pkgVersion(specifier: string, fallback: string): string {
-  try {
-    const pkg = require(specifier) as { version?: string };
-    return pkg.version ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-export const ENGINE_VERSION = pkgVersion("../package.json", "0.1.0");
-export const CORE_VERSION = pkgVersion("@fast-jev/core/package.json", "0.1.0");
+export const ENGINE_VERSION = RELEASE_VERSION;
+export const CORE_VERSION = RELEASE_VERSION;
 export const ADAPTER_VERSIONS = {
-  codex: pkgVersion("@fast-jev/adapter-codex/package.json", "0.1.0"),
-  cursor: pkgVersion("@fast-jev/adapter-cursor/package.json", "0.1.0"),
-  claude: pkgVersion("@fast-jev/adapter-claude/package.json", "0.1.0"),
+  codex: RELEASE_VERSION,
+  cursor: RELEASE_VERSION,
+  claude: RELEASE_VERSION,
 } as const;
 
 export function semanticPolicyVersion(): string {

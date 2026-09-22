@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security / secret leakage
+    url: https://github.com/Non-Plus/fast-jev-llm/security/advisories/new
+    about: Private report — do not post transcripts or credentials publicly

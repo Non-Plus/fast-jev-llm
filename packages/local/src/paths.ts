@@ -23,6 +23,19 @@ export function resolveEnginePaths(options?: {
   };
 }
 
+/** Display paths as ~/... so CLI output does not print local usernames. */
+export function displayUserPath(path: string, home = process.env.HOME ?? homedir()): string {
+  const normalized = path.replaceAll("\\", "/");
+  const homeNorm = home.replaceAll("\\", "/");
+  if (normalized === homeNorm) {
+    return "~";
+  }
+  if (normalized.startsWith(`${homeNorm}/`)) {
+    return `~${normalized.slice(homeNorm.length)}`;
+  }
+  return path;
+}
+
 export function reportsDir(paths: EnginePaths, agent: AgentId): string {
   return join(paths.reportsRoot, agent);
 }

@@ -1,5 +1,17 @@
 # Privacy
 
+**Default:** local analysis, no telemetry, no raw transcript copies in
+the report store, no cloud account, no analytics SDK, no crash
+reporter, no usage beacon, no automatic upload.
+
+> Context Engine stores shadow-analysis reports locally. It does not send
+> usage telemetry.
+
+Remote semantic classification is a separate, **explicit opt-in**. It
+may send selected packed context to a configured provider (Jev). The
+sensitive-content gate is best-effort, not a full secret scanner. Do not
+assume perfect secret detection.
+
 The context engine is local-first. Semantic classification is optional
 and **off by default** so the tool cannot silently send source or
 session context to a remote provider.
@@ -21,7 +33,7 @@ Remote classification happens only when **all** of these are true:
 
 1. `semanticMode` is explicitly `remote`
 2. a remote provider is supplied (`--semantic-provider jev`)
-3. `TYPESafe` / `JEV` credentials are present in the environment
+3. `TYPESAFE` / `JEV` credentials are present in the environment
 
 CLI examples:
 

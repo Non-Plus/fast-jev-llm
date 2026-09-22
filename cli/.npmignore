@@ -1,0 +1,11 @@
+.env
+.env.*
+*.tgz
+coverage
+.testhomes
+**/*.map
+src
+tests
+scripts
+tsconfig.json
+vitest.config.ts

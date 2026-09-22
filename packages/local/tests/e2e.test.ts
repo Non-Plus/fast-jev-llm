@@ -7,9 +7,11 @@ import { claudeFixture, captureIo, codexFixture, cursorFixture, makeFakeHome, se
 
 const homes: Array<() => Promise<void>> = [];
 const previousSync = process.env.CONTEXT_ENGINE_HOOK_SYNC;
+const previousHook = process.env.CONTEXT_ENGINE_HOOK_COMMAND;
 
 beforeEach(() => {
   process.env.CONTEXT_ENGINE_HOOK_SYNC = "1";
+  process.env.CONTEXT_ENGINE_HOOK_COMMAND = "ctx";
 });
 
 afterEach(async () => {
@@ -17,6 +19,11 @@ afterEach(async () => {
     delete process.env.CONTEXT_ENGINE_HOOK_SYNC;
   } else {
     process.env.CONTEXT_ENGINE_HOOK_SYNC = previousSync;
+  }
+  if (previousHook === undefined) {
+    delete process.env.CONTEXT_ENGINE_HOOK_COMMAND;
+  } else {
+    process.env.CONTEXT_ENGINE_HOOK_COMMAND = previousHook;
   }
   await Promise.all(homes.splice(0).map((cleanup) => cleanup()));
 });
@@ -34,6 +41,16 @@ describe("end-to-end setup in a fake HOME", () => {
     });
     expect(setupCode).toBe(0);
     expect(setupIo.text()).toContain("SessionEnd");
+    expect(await readFile(fake.paths.agentConfig.codex, "utf8")).toContain(
+      "ctx hook codex --context-engine-shadow",
+    );
+    expect(await readFile(fake.paths.agentConfig.cursor, "utf8")).toContain(
+      "ctx hook cursor --context-engine-shadow",
+    );
+    expect(await readFile(fake.paths.agentConfig.claude, "utf8")).toContain(
+      "ctx hook claude --context-engine-shadow",
+    );
+    expect(await readFile(fake.paths.agentConfig.codex, "utf8")).not.toContain("tsx");
     const config = await loadConfig(fake.paths);
     expect(config.config.semanticMode).toBe("off");
     expect(config.config.reportPreviews).toBe(false);

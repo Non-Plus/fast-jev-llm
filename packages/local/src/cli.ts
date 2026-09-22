@@ -13,7 +13,14 @@ import { runSetup } from "./setup.js";
 import { formatDogfood, formatStatus } from "./status.js";
 import { clearReports, loadReports, pruneReports } from "./store.js";
 
-export const PRODUCT_USAGE = `Usage:
+import { RELEASE_VERSION } from "./release-version.js";
+
+export const PRODUCT_USAGE = `fast-jev-llm ${RELEASE_VERSION} — ctx
+
+Context optimization for Claude Code, Codex, and Cursor.
+Shadow mode only: analyzes transcripts; does not modify agent context.
+
+Usage:
   ctx setup [--dry-run] [--yes] [--agents codex,cursor,claude]
       [--semantic-mode off|remote] [--confirm-remote]
   ctx status
@@ -25,14 +32,56 @@ export const PRODUCT_USAGE = `Usage:
   ctx reports prune --older-than 30d
   ctx reports clear [--yes]
   ctx dogfood status
-  ctx hook <codex|cursor|claude> [--context-engine-shadow]
-  ctx compact [transcript.json]
-  ctx codex analyze|explain ...
-  ctx cursor analyze|explain ...
-  ctx claude analyze|explain ...
+  ctx hook <codex|cursor|claude>
+  ctx compact <transcript.json>
+  ctx codex|cursor|claude analyze|explain <session>
+  ctx --version
+  ctx --help
 
-Shadow mode only. No coding-agent context is modified.
-Context Engine stores shadow-analysis reports locally. It does not send usage telemetry.`;
+Options:
+  --debug    Developer logs (never prints credential values)
+
+Exit codes: 0 success, 1 operational failure, 2 invalid usage.
+Hooks always exit 0 (fail open).
+
+No telemetry. Semantic classification defaults off.
+Reports stay in ~/.context-engine/. Active compaction is not enabled.`;
+
+const COMMAND_HELP: Record<string, string> = {
+  setup: `ctx setup — install passive SessionEnd hooks
+
+  ctx setup
+  ctx setup --dry-run
+  ctx setup --yes
+  ctx setup --yes --agents codex,cursor,claude
+  ctx setup --yes --semantic-mode remote --confirm-remote
+
+Default analysis is local deterministic only. Remote Jev is opt-in.
+Does not modify agent context. Requires confirmation before writes.`,
+  status: `ctx status — show shadow mode, hooks, report counts, and privacy defaults.`,
+  doctor: `ctx doctor — check Node, config, hooks, and whether Jev credentials exist.
+
+Exit 0 if no hard failures. Never prints credential values.`,
+  sessions: `ctx sessions — list local shadow reports (newest first)
+
+  --agent codex|cursor|claude
+  --workspace <display-name>
+  --limit <n>`,
+  session: `ctx session <id> — show one local report. No transcript is stored.`,
+  stats: `ctx stats — aggregate local shadow statistics
+
+  --days 1|7|30
+  --agent codex|cursor|claude
+  --json
+  --export stats.json
+
+Reduction varies by agent and transcript completeness.
+Cursor sessions are often tool_calls_only.`,
+  uninstall: `ctx uninstall [codex|cursor|claude] — remove only Context Engine hooks.`,
+  reports: `ctx reports prune --older-than 30d
+ctx reports clear --yes`,
+  dogfood: `ctx dogfood status — whether detected agents are collecting shadow reports.`,
+};
 
 const PRODUCT = new Set([
   "setup",
@@ -74,6 +123,10 @@ export async function runProductCommand(
   }
   const paths = options?.paths ?? resolveEnginePaths();
   const rest = argv.slice(1);
+  if (command !== "hook" && (rest.includes("--help") || rest.includes("-h"))) {
+    println(out(options?.io), COMMAND_HELP[command] ?? PRODUCT_USAGE);
+    return 0;
+  }
   try {
     if (command === "setup") {
       return await cmdSetup(rest, paths, options?.io);

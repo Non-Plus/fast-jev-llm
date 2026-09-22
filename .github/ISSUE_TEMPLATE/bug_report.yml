@@ -1,0 +1,27 @@
+name: Bug report
+description: Something is broken in shadow analysis or the CLI
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do **not** upload proprietary transcripts, API keys, or source code unless you intentionally choose to share it. Prefer synthetic fixtures.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ctx version (`ctx --version`)
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options: [Codex, Cursor, Claude Code, Unsure]
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro (synthetic only)

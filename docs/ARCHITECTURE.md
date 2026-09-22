@@ -58,7 +58,7 @@ packages/adapter-cursor       Cursor JSONL → Transcript + shadow analysis
 packages/adapter-claude       Claude JSONL → Transcript + shadow analysis
 packages/providers            SemanticProvider barrel + noop
 packages/providers/jev        Isolated TypeSafe Jev provider
-cli                           `ctx compact`, `ctx {codex,cursor,claude} analyze|explain`
+cli                           Public npm package `fast-jev-llm` (binary: `ctx`)
 benchmarks                    Timing harness, Fast-Jev-style baseline, large JSONL shadow benches
 fixtures                      Shared example sessions
 ```

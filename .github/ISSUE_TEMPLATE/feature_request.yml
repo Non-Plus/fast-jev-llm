@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Do not paste secrets or proprietary transcripts.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What do you want
+    validations:
+      required: true
+  - type: checkboxes
+    id: shadow
+    attributes:
+      label: Scope
+      options:
+        - label: This stays within shadow mode (no live context mutation) unless discussed
+          required: true

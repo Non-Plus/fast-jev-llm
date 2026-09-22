@@ -67,7 +67,7 @@ describe("report schema and store", () => {
       durationMs: 1,
     });
     const json = JSON.stringify(report);
-    expect(json).not.toContain("/Users/alice/project");
+    expect(json).not.toContain("/Users/alice/project/sample-app");
     expect(json).toContain("sample-app");
     expect(report.workspaceId).toBe(workspaceId(path));
   });

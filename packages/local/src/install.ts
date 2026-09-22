@@ -1,6 +1,7 @@
 import type { AgentId, EnginePaths, SetupResult, UninstallResult } from "./types.js";
 import { AGENTS } from "./types.js";
 import { resolveHookCommand } from "./hook-command.js";
+import { displayUserPath } from "./paths.js";
 import { installClaude, planClaude, uninstallClaude } from "./hooks/claude.js";
 import { installCodex, planCodex, uninstallCodex } from "./hooks/codex.js";
 import { installCursor, planCursor, uninstallCursor } from "./hooks/cursor.js";
@@ -22,13 +23,13 @@ export async function planInstall(paths: EnginePaths, hookCommand: string, agent
   return plans;
 }
 
-export function formatInstallPlan(plans: SetupResult["plans"]): string {
+export function formatInstallPlan(plans: SetupResult["plans"], home?: string): string {
   const blocks = plans.map((plan) => {
     const lines = [
       plan.displayName,
       "",
       `Will update:`,
-      plan.configPath,
+      home ? displayUserPath(plan.configPath, home) : plan.configPath,
       "",
       `Will add:`,
       `${plan.eventName} → ${plan.command}`,
