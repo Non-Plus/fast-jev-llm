@@ -3,11 +3,9 @@ export interface NpmPackEntry {
   files?: Array<{ path: string }>;
 }
 
-/** npm pack --json may prefix lifecycle logs or suffix notices on stdout (CI). */
-export function parseNpmPackJson(stdout: string): NpmPackEntry[] {
-  const start = stdout.indexOf("[");
-  if (start < 0) {
-    throw new Error("npm pack --json output did not contain a JSON array");
+function extractBalancedJsonArray(stdout: string, start: number): string | null {
+  if (stdout[start] !== "[") {
+    return null;
   }
   let depth = 0;
   let inString = false;
@@ -39,9 +37,43 @@ export function parseNpmPackJson(stdout: string): NpmPackEntry[] {
     if (ch === "]") {
       depth--;
       if (depth === 0) {
-        return JSON.parse(stdout.slice(start, i + 1)) as NpmPackEntry[];
+        return stdout.slice(start, i + 1);
       }
     }
   }
-  throw new Error("npm pack --json output contained an incomplete JSON array");
+  return null;
+}
+
+function isNpmPackEntry(value: unknown): value is NpmPackEntry {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const filename = (value as NpmPackEntry).filename;
+  return typeof filename === "string" && filename.endsWith(".tgz");
+}
+
+/** npm pack --json may prefix lifecycle logs, stray `[]`, or suffix notices on stdout (CI). */
+export function parseNpmPackJson(stdout: string): NpmPackEntry[] {
+  let searchFrom = 0;
+  while (searchFrom < stdout.length) {
+    const start = stdout.indexOf("[", searchFrom);
+    if (start < 0) {
+      break;
+    }
+    const slice = extractBalancedJsonArray(stdout, start);
+    if (!slice) {
+      searchFrom = start + 1;
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(slice) as unknown;
+      if (Array.isArray(parsed) && parsed.length > 0 && isNpmPackEntry(parsed[0])) {
+        return parsed as NpmPackEntry[];
+      }
+    } catch {
+      // try next `[`
+    }
+    searchFrom = start + 1;
+  }
+  throw new Error("npm pack --json output did not contain a tarball manifest array");
 }
