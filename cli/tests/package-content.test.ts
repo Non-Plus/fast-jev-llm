@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parseNpmPackJson } from "./parse-npm-pack-json.ts";
 
 const cliRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 
@@ -33,16 +34,13 @@ function ensureBuilt(): void {
 describe("npm package contents", () => {
   it("ships only the compiled CLI and public docs", () => {
     ensureBuilt();
-    const packed = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
+    const packed = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts", "--loglevel=error"], {
       cwd: cliRoot,
       encoding: "utf8",
+      env: { ...process.env, NPM_CONFIG_LOGLEVEL: "error" },
     });
-    expect(packed.status, packed.stderr).toBe(0);
-    const jsonStart = packed.stdout.indexOf("[");
-    const parsed = JSON.parse(packed.stdout.slice(jsonStart)) as Array<{
-      files: Array<{ path: string }>;
-      filename: string;
-    }>;
+    expect(packed.status, `${packed.stderr}\n${packed.stdout}`).toBe(0);
+    const parsed = parseNpmPackJson(packed.stdout);
     const files = (parsed[0]?.files ?? []).map((entry) => entry.path.replace(/\\/g, "/"));
     expect(files).toContain("package.json");
     expect(files).toContain("dist/ctx.js");

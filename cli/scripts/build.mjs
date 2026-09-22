@@ -29,7 +29,7 @@ await esbuild.build({
     "@fast-jev/provider-jev": join(repo, "packages/providers/jev/src/index.ts"),
     "@fast-jev/local": join(repo, "packages/local/src/index.ts"),
   },
-  logLevel: "info",
+  logLevel: "silent",
 });
 
 await chmod(outfile, 0o755);

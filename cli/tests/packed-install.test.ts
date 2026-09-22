@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parseNpmPackJson } from "./parse-npm-pack-json.ts";
 
 const cliRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 
@@ -30,10 +31,12 @@ describe("packed artifact", () => {
     const build = run(process.execPath, ["scripts/build.mjs"], { cwd: cliRoot });
     expect(build.status, build.stderr || build.stdout).toBe(0);
 
-    const pack = run("npm", ["pack", "--ignore-scripts", "--json"], { cwd: cliRoot });
-    expect(pack.status, pack.stderr).toBe(0);
-    const jsonStart = pack.stdout.indexOf("[");
-    const packed = JSON.parse(pack.stdout.slice(jsonStart)) as Array<{ filename: string }>;
+    const pack = run("npm", ["pack", "--json", "--loglevel=error"], {
+      cwd: cliRoot,
+      env: { ...process.env, NPM_CONFIG_LOGLEVEL: "error" },
+    });
+    expect(pack.status, `${pack.stderr}\n${pack.stdout}`).toBe(0);
+    const packed = parseNpmPackJson(pack.stdout);
     const filename = packed[0]?.filename;
     expect(filename).toMatch(/fast-jev-llm-0\.1\.0\.tgz$/);
     const tarball = join(cliRoot, filename!);
