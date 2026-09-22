@@ -38,7 +38,7 @@ describe("packed artifact", () => {
     expect(pack.status, `${pack.stderr}\n${pack.stdout}`).toBe(0);
     const packed = parseNpmPackJson(pack.stdout, pack.stderr);
     const filename = packed[0]?.filename;
-    expect(filename).toMatch(/fast-jev-llm-0\.1\.0\.tgz$/);
+    expect(filename).toMatch(/fast-jev-llm-0\.1\.1\.tgz$/);
     const tarball = join(cliRoot, filename!);
 
     const prefix = mkdtempSync(join(tmpdir(), "ctx-prefix-"));
@@ -60,7 +60,7 @@ describe("packed artifact", () => {
 
       const version = run(ctx, ["--version"], { env });
       expect(version.status).toBe(0);
-      expect(version.stdout).toContain("0.1.0");
+      expect(version.stdout).toContain("0.1.1");
 
       const dry = run(ctx, ["setup", "--dry-run", "--yes", "--agents", "codex"], { env });
       expect(dry.status, dry.stderr).toBe(0);

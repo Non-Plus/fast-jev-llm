@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Document optional remote Jev setup in the README
+- Publishing governance docs and Release workflow `npm` environment gate
+- npm pack JSON parsing fixes for npm 12 CI
+- Normalize CLI `bin` path for npm 12
+
 ## 0.1.0
 
 First public shadow-mode release.

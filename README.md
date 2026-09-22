@@ -9,7 +9,7 @@ real context.
 Independent open-source project. Not affiliated with Anthropic, OpenAI,
 Cursor, TypeSafe, or [fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction).
 
-[Install](#install) · [Quick start](#quick-start) · [Safety](docs/SAFETY.md) · [Privacy](docs/PRIVACY.md) · [Publishing rules](docs/PUBLISHING_RULES.md) · [npm CI](docs/NPM_PUBLISHING.md)
+[Install](#install) · [Quick start](#quick-start) · [Remote Jev](#optional-remote-jev-typesafe) · [Safety](docs/SAFETY.md) · [Privacy](docs/PRIVACY.md) · [Setup](docs/SETUP.md) · [Config](docs/CONFIGURATION.md)
 
 ## What is this?
 
@@ -108,6 +108,47 @@ Codex/Claude as if the inputs were equivalent.
 Other commands: `ctx status`, `ctx doctor`, `ctx sessions`,
 `ctx session <id>`, `ctx --help`, `ctx --version`.
 
+## Optional: remote Jev (TypeSafe)
+
+**Default is local shadow analysis only** (`semanticMode=off`). Nothing is
+sent to Jev unless you opt in.
+
+To enable remote semantic classification for hooks and CLI analysis:
+
+1. **API key in the environment** (never commit; not stored in
+   `~/.context-engine/config.json`):
+
+   ```bash
+   export TYPESAFE_API_KEY="your-key"   # or JEV_API_KEY
+   ```
+
+   Optional: `JEV_BASE_URL`, `JEV_MODEL`, `JEV_TIMEOUT_MS` (see
+   [docs/CONFIGURATION.md](docs/CONFIGURATION.md)).
+
+2. **Enable remote mode in setup** (requires explicit confirmation):
+
+   ```bash
+   ctx setup --yes --semantic-mode remote --confirm-remote
+   ```
+
+3. **Verify**:
+
+   ```bash
+   ctx doctor    # shows semantic mode and whether Jev credentials are present
+   ctx status
+   ```
+
+One-off CLI analysis with Jev (does not change saved config):
+
+```bash
+ctx codex analyze /path/to/session.jsonl --semantic-mode remote --semantic-provider jev
+```
+
+Remote mode sends **packed candidate summaries** to TypeSafe Jev, not full
+transcripts. Eligibility rules and redaction apply first; see
+[docs/PRIVACY.md](docs/PRIVACY.md). Full setup steps:
+[docs/SETUP.md](docs/SETUP.md).
+
 ## Why this exists
 
 Agents keep tool history that is often superseded. The engine is a
@@ -149,11 +190,9 @@ Default:
 - no raw transcript copies in the report store
 - no cloud account
 
-Remote semantic mode is **opt-in** and may send selected context to a
-configured provider (Jev). The sensitive-content gate is best-effort,
-not a full secret scanner.
-
-See [docs/PRIVACY.md](docs/PRIVACY.md).
+Remote semantic mode is **opt-in**; configure with
+[Optional: remote Jev](#optional-remote-jev-typesafe). The sensitive-content
+gate is best-effort, not a full secret scanner. See [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Prior art / inspiration
 

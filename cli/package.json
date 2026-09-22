@@ -1,6 +1,6 @@
 {
   "name": "fast-jev-llm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Context optimization for Claude Code, Codex, and Cursor. Shadow-mode analysis only.",
   "license": "MIT",
   "type": "module",
