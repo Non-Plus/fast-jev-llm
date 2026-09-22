@@ -36,7 +36,7 @@ describe("packed artifact", () => {
       env: { ...process.env, NPM_CONFIG_LOGLEVEL: "error" },
     });
     expect(pack.status, `${pack.stderr}\n${pack.stdout}`).toBe(0);
-    const packed = parseNpmPackJson(pack.stdout);
+    const packed = parseNpmPackJson(pack.stdout, pack.stderr);
     const filename = packed[0]?.filename;
     expect(filename).toMatch(/fast-jev-llm-0\.1\.0\.tgz$/);
     const tarball = join(cliRoot, filename!);

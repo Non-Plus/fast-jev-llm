@@ -3,8 +3,15 @@ export interface NpmPackEntry {
   files?: Array<{ path: string }>;
 }
 
-function extractBalancedJsonArray(stdout: string, start: number): string | null {
-  if (stdout[start] !== "[") {
+type PackRecord = {
+  filename?: string;
+  name?: string;
+  version?: string;
+  files?: Array<{ path: string }>;
+};
+
+function extractBalancedJson(stdout: string, start: number, open: "[" | "{", close: "]" | "}"): string | null {
+  if (stdout[start] !== open) {
     return null;
   }
   let depth = 0;
@@ -30,11 +37,11 @@ function extractBalancedJsonArray(stdout: string, start: number): string | null 
       inString = true;
       continue;
     }
-    if (ch === "[") {
+    if (ch === open) {
       depth++;
       continue;
     }
-    if (ch === "]") {
+    if (ch === close) {
       depth--;
       if (depth === 0) {
         return stdout.slice(start, i + 1);
@@ -44,36 +51,76 @@ function extractBalancedJsonArray(stdout: string, start: number): string | null 
   return null;
 }
 
-function isNpmPackEntry(value: unknown): value is NpmPackEntry {
+function isPackRecord(value: unknown): value is PackRecord {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const filename = (value as NpmPackEntry).filename;
-  return typeof filename === "string" && filename.endsWith(".tgz");
+  const record = value as PackRecord;
+  if (typeof record.filename === "string" && record.filename.endsWith(".tgz")) {
+    return true;
+  }
+  return typeof record.name === "string" && Array.isArray(record.files);
 }
 
-/** npm pack --json may prefix lifecycle logs, stray `[]`, or suffix notices on stdout (CI). */
-export function parseNpmPackJson(stdout: string): NpmPackEntry[] {
-  let searchFrom = 0;
-  while (searchFrom < stdout.length) {
-    const start = stdout.indexOf("[", searchFrom);
-    if (start < 0) {
-      break;
+function normalizePackRecord(record: PackRecord): NpmPackEntry {
+  const filename =
+    record.filename ??
+    (record.name && record.version ? `${record.name}-${record.version}.tgz` : undefined);
+  if (!filename) {
+    throw new Error("npm pack entry is missing filename");
+  }
+  return { filename, files: record.files };
+}
+
+function entriesFromParsed(parsed: unknown): NpmPackEntry[] | null {
+  if (Array.isArray(parsed)) {
+    if (parsed.length === 0 || !isPackRecord(parsed[0])) {
+      return null;
     }
-    const slice = extractBalancedJsonArray(stdout, start);
+    return parsed.map((entry) => normalizePackRecord(entry as PackRecord));
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  if (isPackRecord(parsed)) {
+    return [normalizePackRecord(parsed as PackRecord)];
+  }
+  const values = Object.values(parsed as Record<string, unknown>);
+  if (values.length > 0 && values.every(isPackRecord)) {
+    return values.map((entry) => normalizePackRecord(entry as PackRecord));
+  }
+  return null;
+}
+
+function tryParsePackJsonSlice(slice: string): NpmPackEntry[] | null {
+  try {
+    return entriesFromParsed(JSON.parse(slice) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+/** npm pack --json output (array in npm ≤11, object keyed by name in npm ≥12). */
+export function parseNpmPackJson(stdout: string, stderr = ""): NpmPackEntry[] {
+  const combined = `${stdout}\n${stderr}`;
+  const starts: Array<{ index: number; open: "[" | "{"; close: "]" | "}" }> = [];
+  for (let i = 0; i < combined.length; i++) {
+    const ch = combined[i];
+    if (ch === "[") {
+      starts.push({ index: i, open: "[", close: "]" });
+    } else if (ch === "{") {
+      starts.push({ index: i, open: "{", close: "}" });
+    }
+  }
+  for (const { index, open, close } of starts) {
+    const slice = extractBalancedJson(combined, index, open, close);
     if (!slice) {
-      searchFrom = start + 1;
       continue;
     }
-    try {
-      const parsed = JSON.parse(slice) as unknown;
-      if (Array.isArray(parsed) && parsed.length > 0 && isNpmPackEntry(parsed[0])) {
-        return parsed as NpmPackEntry[];
-      }
-    } catch {
-      // try next `[`
+    const entries = tryParsePackJsonSlice(slice);
+    if (entries && entries.length > 0) {
+      return entries;
     }
-    searchFrom = start + 1;
   }
-  throw new Error("npm pack --json output did not contain a tarball manifest array");
+  throw new Error("npm pack --json output did not contain a tarball manifest");
 }

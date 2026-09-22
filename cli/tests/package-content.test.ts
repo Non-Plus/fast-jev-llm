@@ -40,7 +40,7 @@ describe("npm package contents", () => {
       env: { ...process.env, NPM_CONFIG_LOGLEVEL: "error" },
     });
     expect(packed.status, `${packed.stderr}\n${packed.stdout}`).toBe(0);
-    const parsed = parseNpmPackJson(packed.stdout);
+    const parsed = parseNpmPackJson(packed.stdout, packed.stderr);
     const files = (parsed[0]?.files ?? []).map((entry) => entry.path.replace(/\\/g, "/"));
     expect(files).toContain("package.json");
     expect(files).toContain("dist/ctx.js");
