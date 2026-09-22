@@ -9,7 +9,7 @@ real context.
 Independent open-source project. Not affiliated with Anthropic, OpenAI,
 Cursor, TypeSafe, or [fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction).
 
-[Install](#install) · [Quick start](#quick-start) · [Safety](docs/SAFETY.md) · [Privacy](docs/PRIVACY.md) · [npm publishing](docs/NPM_PUBLISHING.md)
+[Install](#install) · [Quick start](#quick-start) · [Safety](docs/SAFETY.md) · [Privacy](docs/PRIVACY.md) · [Publishing rules](docs/PUBLISHING_RULES.md) · [npm CI](docs/NPM_PUBLISHING.md)
 
 ## What is this?
 
