@@ -9,8 +9,11 @@ Do **not** open a public issue that includes:
 
 ## Report privately
 
-Use GitHub **Security Advisories** on this repository, or email the
-maintainers if an advisory cannot be created.
+Use GitHub **Security Advisories** on this repository:
+
+https://github.com/Non-Plus/fast-jev-llm/security/advisories/new
+
+Do not open a public issue for secret leakage or sensitive transcripts.
 
 Please include:
 
